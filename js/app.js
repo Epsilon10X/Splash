@@ -1008,14 +1008,21 @@
     document.documentElement.style.colorScheme = resolved;
     const themeMeta = document.querySelector('meta[name="theme-color"]');
     if (themeMeta) {
-      themeMeta.setAttribute('content', resolved === 'dark' ? '#141714' : '#FAF8F3');
+      themeMeta.setAttribute('content', resolved === 'dark' ? '#111214' : '#FAF8F3');
     }
+    try {
+      if (window.SplashNative && typeof window.SplashNative.setSystemBarsTheme === 'function') {
+        window.SplashNative.setSystemBarsTheme(resolved === 'dark', resolved === 'dark' ? '#111214' : '#FAF8F3');
+      }
+    } catch (_) {}
     document.querySelectorAll('#theme-mode-tabs .theme-mode-btn').forEach(btn => {
       const isMatch = btn.dataset.themeMode === mode;
       btn.classList.toggle('active', isMatch);
       btn.setAttribute('aria-checked', isMatch ? 'true' : 'false');
     });
   }
+
+  let catalogDirty = true;
 
   function renderAll(celebrate = false) {
     applyThemeMode();
@@ -1027,7 +1034,12 @@
     renderTimeBlocks();
     renderCalendar();
     renderMuroSocialViews();
-    renderCatalog();
+    const catalogTab = document.getElementById('tab-catalogo');
+    if (catalogTab && catalogTab.classList.contains('active')) {
+      renderCatalog();
+    } else {
+      catalogDirty = true;
+    }
     const biomesTab = document.getElementById('tab-biomas');
     if (biomesTab && biomesTab.classList.contains('active')) {
       renderBiomesStack();
@@ -1035,6 +1047,39 @@
     if (widgetStudio.open) {
       renderWidgetStudio();
     }
+    syncAndroidWidget();
+  }
+
+  function sendNativeNotification(title, body) {
+    try {
+      if (window.SplashNative && typeof window.SplashNative.sendNotification === 'function') {
+        window.SplashNative.sendNotification(String(title || 'Splash'), String(body || ''));
+        return;
+      }
+      if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification(String(title || 'Splash'), { body: String(body || '') });
+      }
+    } catch (_) {}
+  }
+
+  function syncAndroidWidget() {
+    try {
+      if (!window.SplashNative || typeof window.SplashNative.updateWidget !== 'function') return;
+      const activeId = getActiveBiomeId();
+      const bMeta = window.BroteMascot ? window.BroteMascot.getBiome(activeId) : { name: 'Valle Alpino' };
+      const pts = getEffectiveBiomePoints();
+      const lvl = window.BroteMascot ? window.BroteMascot.getLevelFromPoints(pts) : 1;
+      const streak = getCumulativeStreak();
+      const firstId = state.dailySuggestions && state.dailySuggestions.RAPIDO && state.dailySuggestions.RAPIDO[0];
+      const nextGoalObj = state.catalog.find(g => g.id === firstId) || state.catalog[0];
+      const nextGoalTitle = nextGoalObj ? getShortTitle(nextGoalObj) : tx('Completa un reto de 2 min', 'Complete a 2-min goal');
+      window.SplashNative.updateWidget(
+        bMeta.name || 'Splash',
+        `${tx('Nv.', 'Lvl.')} ${lvl}`,
+        `${streak} ${streak === 1 ? tx('día', 'day') : tx('días', 'days')}`,
+        nextGoalTitle
+      );
+    } catch (_) {}
   }
 
   function renderHeader() {
@@ -1228,7 +1273,7 @@
       refreshBtn.classList.add('hidden');
       rerollBtn.classList.remove('hidden');
       rawIds = state.weekly.challengeIds.slice(0, 2);
-      actionFn = () => tx('Puente', 'Bridge');
+      actionFn = () => tx('Completar', 'Complete');
     }
 
     const doneFn = (id) => (isWeekly ? isGoalDoneThisWeek(id) : isGoalDoneToday(id));
@@ -1669,21 +1714,48 @@
   function navigateToBiomeFromMap(biomeId) {
     if (!biomeId) return;
     const unlocked = isBiomeUnlocked(biomeId);
-    if (unlocked) {
-      state.lumi.biome = biomeId;
-      state.lumi.betaPointsOverride = null;
-      refreshBiomeSuggestionsOnSwitch();
-      saveState();
-      renderAll(false);
+    const board = document.querySelector('#muro-panel-archipielago .world-map-board');
+    const zone = window.BroteWorldMap && typeof window.BroteWorldMap.getZone === 'function'
+      ? window.BroteWorldMap.getZone(biomeId)
+      : null;
+
+    function launchBiomeViewer() {
+      if (unlocked) {
+        state.lumi.biome = biomeId;
+        state.lumi.betaPointsOverride = null;
+        refreshBiomeSuggestionsOnSwitch();
+        saveState();
+        renderAll(false);
+      }
+      const modalEl = document.getElementById('modal-biome-3d');
+      if (modalEl) {
+        modalEl.classList.remove('is-entering');
+        void modalEl.offsetWidth;
+        modalEl.classList.add('is-entering');
+        setTimeout(() => modalEl.classList.remove('is-entering'), 340);
+      }
+      openBiome3DViewer(biomeId);
+      if (board) {
+        board.classList.remove('is-zooming-in');
+      }
+      if (!unlocked) {
+        const bMeta = window.BroteMascot.getBiome(biomeId);
+        const progMeta = window.BroteMascot.getBiome(getCurrentProgressBiomeId());
+        showToast('cloud', tx(
+          `${bMeta.name}: aún bajo nubes. Completa ${progMeta.name} al Nv. 8 para despejarlo.`,
+          `${bMeta.name}: still covered by clouds. Complete ${progMeta.name} (Lvl. 8) to unlock.`
+        ));
+      }
     }
-    openBiome3DViewer(biomeId);
-    if (!unlocked) {
-      const bMeta = window.BroteMascot.getBiome(biomeId);
-      const progMeta = window.BroteMascot.getBiome(getCurrentProgressBiomeId());
-      showToast('cloud', tx(
-        `${bMeta.name}: aún bajo nubes. Completa ${progMeta.name} al Nv. 8 para despejarlo.`,
-        `${bMeta.name}: still covered by clouds. Complete ${progMeta.name} (Lvl. 8) to unlock.`
-      ));
+
+    if (board) {
+      if (zone) {
+        board.style.transformOrigin = `${zone.cx}px ${zone.cy}px`;
+      }
+      board.classList.add('is-zooming-in');
+      setTimeout(launchBiomeViewer, 210);
+    } else {
+      launchBiomeViewer();
     }
   }
 
@@ -2330,7 +2402,9 @@
 
   // --- PESTAÑA 3: CATÁLOGO ---
   function renderCatalog() {
+    catalogDirty = false;
     const listEl = document.getElementById('catalog-list');
+    if (!listEl) return;
     listEl.innerHTML = '';
 
     const q = catalogQuery.trim().toLowerCase();
@@ -2362,6 +2436,7 @@
       return 0;
     });
 
+    const frag = document.createDocumentFragment();
     filtered.forEach(g => {
       const isLockedSecret = Boolean(g.biomaExclusivo && !isBiomeUnlocked(g.biomaExclusivo));
       const row = document.createElement('div');
@@ -2393,7 +2468,7 @@
             )}</span>
           </div>
         `;
-        listEl.appendChild(row);
+        frag.appendChild(row);
         return;
       }
 
@@ -2463,8 +2538,9 @@
         row.classList.toggle('is-expanded');
       });
 
-      listEl.appendChild(row);
+      frag.appendChild(row);
     });
+    listEl.appendChild(frag);
   }
 
   function showToast(iconName, text, withPhotoBtn = false) {
@@ -2670,25 +2746,86 @@
     return getBiomePoints(biomeId);
   }
 
+  const biomeThumbCache = new Map();
+  let biomeStackRenderToken = 0;
+
   function renderBiomesStackCanvases() {
+    const token = ++biomeStackRenderToken;
     const isAwake = state.lumi.lastAwakeDate === getTodayKey();
     const weatherMode = getLiveWeatherMode();
-    document.querySelectorAll('#biomes-stack-list .biome-stack-canvas').forEach(canvas => {
+    const theme = document.documentElement.dataset.theme || 'light';
+    const canvases = Array.from(document.querySelectorAll('#biomes-stack-list .biome-stack-canvas'));
+    const pending = [];
+
+    canvases.forEach(canvas => {
       const id = canvas.dataset.biomeCanvas;
       const done = isBiomeCompleted(id);
       const unlocked = isBiomeUnlocked(id);
       const pts = unlocked ? getDisplayPointsForBiome(id) : 30;
-      window.BroteMascot.renderToCanvas(canvas, {
-        biome: id,
-        points: pts,
-        isAwake: done || (unlocked && isAwake),
-        lockedClouds: !unlocked,
-        weatherMode: unlocked ? weatherMode : 'clear',
-        yaw: Math.PI / 4,
-        pitch: 0.60,
-        zoom: 1.05
-      });
+      const parent = canvas.parentElement;
+      const w = Math.round((parent && parent.clientWidth > 10 ? parent.clientWidth : 180));
+      const h = Math.round((parent && parent.clientHeight > 10 ? parent.clientHeight : 140));
+      const cacheKey = `${id}|${pts}|${unlocked ? 1 : 0}|${done || (unlocked && isAwake) ? 1 : 0}|${unlocked ? weatherMode : 'clear'}|${theme}|${w}x${h}`;
+
+      const cached = biomeThumbCache.get(cacheKey);
+      if (cached) {
+        canvas.width = cached.width;
+        canvas.height = cached.height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(cached, 0, 0);
+        }
+      } else {
+        pending.push({
+          canvas,
+          cacheKey,
+          opts: {
+            biome: id,
+            points: pts,
+            isAwake: done || (unlocked && isAwake),
+            lockedClouds: !unlocked,
+            weatherMode: unlocked ? weatherMode : 'clear',
+            yaw: Math.PI / 4,
+            pitch: 0.60,
+            zoom: 1.05,
+            maxDpr: 1.15
+          }
+        });
+      }
     });
+
+    if (pending.length === 0) return;
+
+    let idx = 0;
+    function renderBatch() {
+      if (token !== biomeStackRenderToken) return;
+      const batchEnd = Math.min(idx + 2, pending.length);
+      for (; idx < batchEnd; idx++) {
+        const item = pending[idx];
+        if (!item.canvas.isConnected) continue;
+        window.BroteMascot.renderToCanvas(item.canvas, item.opts);
+        if (item.canvas.width > 0 && item.canvas.height > 0) {
+          if (biomeThumbCache.size >= 24) {
+            const firstKey = biomeThumbCache.keys().next().value;
+            biomeThumbCache.delete(firstKey);
+          }
+          const off = document.createElement('canvas');
+          off.width = item.canvas.width;
+          off.height = item.canvas.height;
+          const offCtx = off.getContext('2d');
+          if (offCtx) {
+            offCtx.drawImage(item.canvas, 0, 0);
+            biomeThumbCache.set(item.cacheKey, off);
+          }
+        }
+      }
+      if (idx < pending.length) {
+        requestAnimationFrame(renderBatch);
+      }
+    }
+
+    requestAnimationFrame(renderBatch);
   }
 
   function renderBiomesStack() {
@@ -2714,6 +2851,7 @@
     const progressBiome = window.BroteMascot.getBiome(getCurrentProgressBiomeId());
 
     listEl.innerHTML = '';
+    const stackFrag = document.createDocumentFragment();
     window.BroteMascot.BIOMES.forEach((b, idx) => {
       const isActive = b.id === activeId;
       const bPts = getDisplayPointsForBiome(b.id);
@@ -2805,8 +2943,9 @@
         openBiome3DViewer(b.id);
       });
 
-      listEl.appendChild(card);
+      stackFrag.appendChild(card);
     });
+    listEl.appendChild(stackFrag);
 
     const tabBiomas = document.getElementById('tab-biomas');
     if (tabBiomas && tabBiomas.classList.contains('active')) {
@@ -2891,8 +3030,21 @@
     }
   }
 
-  function renderViewerFrame() {
+  function renderViewerFrame(nowMs) {
     if (!viewer3D.open) return;
+
+    const now = typeof nowMs === 'number' ? nowMs : performance.now();
+    const isMoving =
+      viewer3D.pointers.size > 0 ||
+      viewer3D.velYaw !== 0 ||
+      viewer3D.velPitch !== 0 ||
+      Math.abs(viewer3D.targetZoom - viewer3D.zoom) > 0.002;
+
+    if (!isMoving && viewer3D.lastDrawMs && (now - viewer3D.lastDrawMs) < 48) {
+      viewer3D.rafId = requestAnimationFrame(renderViewerFrame);
+      return;
+    }
+    viewer3D.lastDrawMs = now;
 
     if (viewer3D.pointers.size === 0) {
       viewer3D.yaw += viewer3D.velYaw;
@@ -2923,7 +3075,8 @@
       yaw: viewer3D.yaw,
       pitch: viewer3D.pitch,
       zoom: viewer3D.zoom,
-      time: performance.now() / 1000
+      time: now / 1000,
+      maxDpr: 1.25
     });
 
     viewer3D.rafId = requestAnimationFrame(renderViewerFrame);
@@ -3124,21 +3277,59 @@
   }
 
   function bindEvents() {
+    const TAB_ORDER = ['tab-hoy', 'tab-muro', 'tab-catalogo', 'tab-biomas'];
+    let currentTabId = 'tab-hoy';
+
+    function updateNavSlider(targetId) {
+      const slider = document.getElementById('ft-active-slider');
+      const toolbar = slider && slider.parentElement;
+      if (!slider || !toolbar) return;
+      const activeBtn = toolbar.querySelector(`.ft-item[data-tab="${targetId}"]`);
+      if (!activeBtn) {
+        slider.style.opacity = '0';
+        return;
+      }
+      slider.style.opacity = '1';
+      slider.style.width = `${activeBtn.offsetWidth}px`;
+      slider.style.transform = `translateX(${activeBtn.offsetLeft}px)`;
+    }
+
+    requestAnimationFrame(() => updateNavSlider(currentTabId));
+    window.addEventListener('resize', () => updateNavSlider(currentTabId));
+
     function openTab(targetId) {
+      const prevIdx = TAB_ORDER.indexOf(currentTabId);
+      const nextIdx = TAB_ORDER.indexOf(targetId);
+      const dirClass = nextIdx > prevIdx ? 'slide-from-right' : nextIdx < prevIdx ? 'slide-from-left' : '';
+      currentTabId = targetId;
+
       document.querySelectorAll('.ft-nav-btn').forEach(b => {
         b.classList.toggle('active', b.dataset.tab === targetId);
       });
       document.querySelectorAll('.tab-view').forEach(v => {
-        v.classList.toggle('active', v.id === targetId);
+        v.classList.remove('slide-from-right', 'slide-from-left');
+        const isTarget = v.id === targetId;
+        v.classList.toggle('active', isTarget);
+        if (isTarget && dirClass) {
+          void v.offsetWidth;
+          v.classList.add(dirClass);
+        }
       });
+      requestAnimationFrame(() => updateNavSlider(targetId));
+
       const mainEl = document.getElementById('main-content');
       if (mainEl) mainEl.scrollTop = 0;
       if (targetId === 'tab-biomas') {
         renderBiomesStack();
-      } else if (targetId === 'tab-hoy') {
-        renderMascot(false);
-      } else if (targetId === 'tab-muro') {
-        renderMuroSocialViews();
+      } else {
+        biomeStackRenderToken++;
+        if (targetId === 'tab-hoy') {
+          renderMascot(false);
+        } else if (targetId === 'tab-muro') {
+          renderMuroSocialViews();
+        } else if (targetId === 'tab-catalogo' && catalogDirty) {
+          requestAnimationFrame(() => renderCatalog());
+        }
       }
     }
 
@@ -3524,13 +3715,81 @@
       showToast('casino', tx('Nuevos retos asignados para esta semana.', 'Fresh weekly challenges assigned.'));
     });
 
-    document.getElementById('btn-bereal-photo').addEventListener('click', openCameraModal);
+    const dismissBeRealBtn = document.getElementById('btn-bereal-dismiss');
+    if (dismissBeRealBtn) {
+      dismissBeRealBtn.addEventListener('click', () => {
+        state.beRealPing.active = false;
+        saveState();
+        renderBeRealCard();
+      });
+    }
+
+    document.getElementById('btn-bereal-photo').addEventListener('click', () => {
+      const goal = state.catalog.find(g => g.id === state.beRealPing.goalId) || state.catalog[0];
+      state.beRealPing.active = false;
+      saveState();
+      renderBeRealCard();
+      if (goal) {
+        completeGoal(goal, { allowPhoto: false });
+      }
+      openCameraModal();
+    });
     document.getElementById('btn-bereal-done').addEventListener('click', () => {
       const goal = state.catalog.find(g => g.id === state.beRealPing.goalId) || state.catalog[0];
       state.beRealPing.active = false;
       saveState();
       completeGoal(goal, { allowPhoto: true });
     });
+
+    const enableNotifsBtn = document.getElementById('btn-enable-notifs');
+    if (enableNotifsBtn) {
+      enableNotifsBtn.addEventListener('click', () => {
+        if (window.SplashNative && typeof window.SplashNative.requestNotificationPermission === 'function') {
+          const granted = window.SplashNative.hasNotificationPermission && window.SplashNative.hasNotificationPermission();
+          if (granted) {
+            window.SplashNative.sendNotification(
+              'Splash',
+              tx('Las notificaciones están activas en tu móvil.', 'Notifications are active on your phone.')
+            );
+            showToast('notifications_active', tx('Notificaciones ya permitidas. Te enviamos una prueba.', 'Notifications already enabled. Test sent.'));
+          } else {
+            window.SplashNative.requestNotificationPermission();
+            showToast('notifications', tx('Acepta el permiso de notificaciones en Android.', 'Allow the Android notification permission prompt.'));
+          }
+          return;
+        }
+        if ('Notification' in window) {
+          Notification.requestPermission().then((perm) => {
+            showToast(
+              perm === 'granted' ? 'notifications_active' : 'notifications_off',
+              perm === 'granted'
+                ? tx('Notificaciones activadas.', 'Notifications enabled.')
+                : tx('Permiso de notificaciones denegado.', 'Notification permission denied.')
+            );
+          }).catch(() => {});
+        } else {
+          showToast('info', tx('Disponible en la app de Android.', 'Available in the Android app.'));
+        }
+      });
+    }
+
+    const pinWidgetBtn = document.getElementById('btn-pin-android-widget');
+    if (pinWidgetBtn) {
+      pinWidgetBtn.addEventListener('click', () => {
+        syncAndroidWidget();
+        if (window.SplashNative && typeof window.SplashNative.pinWidget === 'function') {
+          const ok = window.SplashNative.pinWidget(widgetStudio.type || '4x2');
+          showToast(
+            'widgets',
+            ok
+              ? tx('Confirma en Android para añadir el widget de Splash a tu inicio.', 'Confirm in Android to add the Splash widget to your home screen.')
+              : tx('Mantén pulsada tu pantalla de inicio > Widgets > Splash.', 'Long-press your home screen > Widgets > Splash.')
+          );
+        } else {
+          showToast('widgets', tx('En Android: mantén pulsada la pantalla de inicio > Widgets > Splash.', 'On Android: long-press home screen > Widgets > Splash.'));
+        }
+      });
+    }
 
     document.getElementById('toast-photo-btn').addEventListener('click', () => {
       document.getElementById('cozy-toast').classList.add('hidden');
@@ -3716,12 +3975,20 @@
         } else {
           state.ui.lang = nextLang;
         }
-        syncAllModulesLanguage(nextLang);
-        saveState();
-        renderAll(false);
-        renderNotifSchedule();
-        if (viewer3D.open) updateViewerUI();
-        showToast('translate', nextLang === 'en' ? 'Language switched to English.' : 'Idioma cambiado a Español.');
+        const shell = document.querySelector('.app-shell');
+        if (shell) shell.classList.add('is-lang-fading');
+        setTimeout(() => {
+          syncAllModulesLanguage(nextLang);
+          saveState();
+          renderAll(false);
+          renderNotifSchedule();
+          if (viewer3D.open) updateViewerUI();
+          requestAnimationFrame(() => {
+            updateNavSlider(currentTabId);
+            if (shell) shell.classList.remove('is-lang-fading');
+          });
+          showToast('translate', nextLang === 'en' ? 'Language switched to English.' : 'Idioma cambiado a Español.');
+        }, 120);
       });
     }
 
@@ -3974,6 +4241,11 @@
       document.getElementById('modal-simulator').classList.add('hidden');
       if (statusNow.allowed) {
         window.BroteAudio.playBiomeChime(activeBiome);
+        const pingGoal = state.catalog.find(g => g.id === state.beRealPing.goalId);
+        sendNativeNotification(
+          `${notifMeta.quickBadge} · 20m`,
+          pingGoal ? pingGoal.titulo : tx('Tienes 20 min para completar tu reto rápido.', 'You have 20 min to complete your quick goal.')
+        );
       }
       showToast(
         statusNow.allowed ? 'bolt' : 'notifications_off',
@@ -3997,6 +4269,11 @@
       renderBeRealCard();
       document.getElementById('modal-simulator').classList.add('hidden');
       window.BroteAudio.playBiomeChime(activeBiome);
+      const medioGoal = state.catalog.find(g => g.id === state.beRealPing.goalId);
+      sendNativeNotification(
+        `${notifMeta.medioBadge} · 4h`,
+        medioGoal ? medioGoal.titulo : tx('Ventana de 4 horas para tu reto medio.', '4-hour window for your medium goal.')
+      );
       showToast('schedule', `${notifMeta.medioBadge} · ${tx('Ventana de 4 horas.', '4-hour window.')}`);
     });
 
@@ -4042,6 +4319,10 @@
         pEl.textContent = notifMeta.rescueCopy;
       }
       preview.classList.toggle('hidden');
+      if (!preview.classList.contains('hidden')) {
+        const notifMeta = BIOME_NOTIFS[getActiveBiomeId()] || BIOME_NOTIFS.valle;
+        sendNativeNotification(tx('Splash · Rescate Anti-Scroll', 'Splash · Anti-Scroll Rescue'), notifMeta.rescueCopy);
+      }
     });
 
     document.querySelectorAll('.lock-btn').forEach(btn => {

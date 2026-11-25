@@ -1113,13 +1113,13 @@ window.BroteExploreCosta = (function () {
         rafId = requestAnimationFrame(drawScene);
         return;
       }
-      const ctx = canvas.getContext('2d');
+      const ctx = canvas.getContext('2d', { alpha: false }) || canvas.getContext('2d');
       if (!ctx) {
         rafId = requestAnimationFrame(drawScene);
         return;
       }
 
-      const dpr = window.devicePixelRatio || 1;
+      const dpr = Math.min(window.devicePixelRatio || 1, 1.25);
       const w = canvas.clientWidth || 412;
       const h = canvas.clientHeight || 720;
       if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) {

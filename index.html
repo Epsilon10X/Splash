@@ -22,7 +22,7 @@
   <!-- Librería oficial Google Material Web (@material/web) -->
   <script type="module" src="https://esm.run/@material/web/all.js"></script>
 
-  <link rel="stylesheet" href="styles.css?v=26" />
+  <link rel="stylesheet" href="styles.css?v=29" />
   <script>
     (function () {
       try {
@@ -111,7 +111,12 @@
               <span class="material-symbols-rounded icon-xs" id="bereal-badge-icon">bolt</span>
               <span id="bereal-badge-text">Aviso Rápido · 20m</span>
             </div>
-            <div class="bereal-timer" id="bereal-countdown">20:00</div>
+            <div class="bereal-header-right">
+              <div class="bereal-timer" id="bereal-countdown">20:00</div>
+              <button type="button" class="bereal-dismiss-btn" id="btn-bereal-dismiss" data-i18n-aria="bereal_dismiss_aria" aria-label="Descartar aviso">
+                <span class="material-symbols-rounded icon-xs">close</span>
+              </button>
+            </div>
           </div>
           <p class="bereal-prompt" id="bereal-prompt-text">
             Respirar de forma relajada durante 1 minuto
@@ -268,6 +273,7 @@
     <div class="nav-blur-scrim" aria-hidden="true"></div>
     <div class="floating-nav-dock">
       <nav class="floating-toolbar" data-i18n-aria="nav_aria" aria-label="Navegación principal">
+        <span class="ft-active-slider" id="ft-active-slider" aria-hidden="true"></span>
         <button class="ft-item ft-nav-btn active" data-tab="tab-hoy">
           <span class="ft-pill">
             <span class="material-symbols-rounded">home</span>
@@ -537,6 +543,14 @@
       </div>
 
       <div class="sim-buttons" style="margin-top:12px;">
+        <button class="sim-btn" id="btn-enable-notifs">
+          <span class="material-symbols-rounded sim-icon tone-teal">notifications_active</span>
+          <div>
+            <strong data-i18n="notif_perm_title">Permiso de notificaciones</strong>
+            <small data-i18n="notif_perm_sub">Activa avisos nativos en Android para recordatorios rápidos</small>
+          </div>
+        </button>
+
         <button class="sim-btn" id="btn-open-widgets">
           <span class="material-symbols-rounded sim-icon tone-sage">widgets</span>
           <div>
@@ -764,6 +778,11 @@
 
       <div class="pixel-wallpaper-stage" id="pixel-widget-stage" data-wtime="day"></div>
 
+      <button type="button" class="widget-pin-btn" id="btn-pin-android-widget">
+        <span class="material-symbols-rounded icon-sm">add_to_home_screen</span>
+        <span data-i18n="w_pin_btn">Añadir widget a la pantalla de inicio</span>
+      </button>
+
       <p class="widget-studio-note" data-i18n="w_note">Interactivo: toca un reto del widget para completarlo o abrirlo sin navegar por la app.</p>
     </div>
   </div>
@@ -835,14 +854,14 @@
   </div>
   </div>
 
-  <script defer src="js/i18n.js?v=26"></script>
-  <script defer src="data/catalog.js?v=26"></script>
-  <script defer src="js/audio.js?v=26"></script>
-  <script defer src="js/mascot.js?v=26"></script>
-  <script defer src="js/social.js?v=26"></script>
-  <script defer src="js/explore-costa.js?v=26"></script>
-  <script defer src="js/world-map.js?v=26"></script>
-  <script defer src="js/app.js?v=26"></script>
+  <script defer src="js/i18n.js?v=29"></script>
+  <script defer src="data/catalog.js?v=29"></script>
+  <script defer src="js/audio.js?v=29"></script>
+  <script defer src="js/mascot.js?v=29"></script>
+  <script defer src="js/social.js?v=29"></script>
+  <script defer src="js/explore-costa.js?v=29"></script>
+  <script defer src="js/world-map.js?v=29"></script>
+  <script defer src="js/app.js?v=29"></script>
   <script>
     if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
       window.addEventListener('load', function () {

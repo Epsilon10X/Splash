@@ -2251,7 +2251,8 @@ window.BroteMascot = (function () {
     const layout = getBiomeLayout(biome);
     const budgets = getBudgetsForPoints(points, layout);
 
-    const dpr = window.devicePixelRatio || 1;
+    const maxDpr = typeof opts.maxDpr === 'number' ? opts.maxDpr : 1.5;
+    const dpr = Math.min(window.devicePixelRatio || 1, maxDpr);
     const parent = canvas.parentElement;
     let w = parent && parent.clientWidth > 10 ? parent.clientWidth : 0;
     let h = parent && parent.clientHeight > 10 ? parent.clientHeight : 0;
@@ -2647,7 +2648,7 @@ window.BroteMascot = (function () {
   function resizeCanvas() {
     if (particleCanvas && particleCanvas.parentElement) {
       const parent = particleCanvas.parentElement;
-      const dpr = window.devicePixelRatio || 1;
+      const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
       let w = parent.clientWidth > 10 ? parent.clientWidth : 0;
       let h = parent.clientHeight > 10 ? parent.clientHeight : 0;
       if (!w || !h) {

@@ -189,7 +189,11 @@ window.SplashI18n = (function () {
     exp_photo_close_aria: ['Cerrar cuadro', 'Close frame'],
     exp_photo_alt: ['Recuerdo del Muro Real', 'Real Wall Memory'],
     exp_photo_date_default: ['Muro Real', 'Real Wall'],
-    exp_photo_title_default: ['Tu recuerdo', 'Your memory']
+    exp_photo_title_default: ['Tu recuerdo', 'Your memory'],
+    bereal_dismiss_aria: ['Descartar aviso', 'Dismiss alert'],
+    notif_perm_title: ['Permiso de notificaciones', 'Notification permission'],
+    notif_perm_sub: ['Activa avisos nativos en Android para recordatorios rápidos', 'Enable native Android alerts for quick reminders'],
+    w_pin_btn: ['Añadir widget a la pantalla de inicio', 'Add widget to home screen']
   };
 
   function normalizeLang(lang) {

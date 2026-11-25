@@ -76,6 +76,17 @@
   margin: 0;
   padding: 0;
   -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+input,
+textarea,
+[contenteditable="true"] {
+  -webkit-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
 }
 
 body {
@@ -117,6 +128,12 @@ body {
   position: relative;
   box-shadow: 0 24px 60px rgba(40, 38, 34, 0.12);
   overflow: hidden;
+  transition: opacity 0.16s ease, transform 0.2s var(--m3-emphasized);
+}
+
+.app-shell.is-lang-fading {
+  opacity: 0.35;
+  transform: scale(0.992);
 }
 
 @media (min-width: 480px) {
@@ -406,11 +423,47 @@ body {
 
 .tab-view {
   display: none;
-  animation: m3FadeIn 0.28s var(--m3-emphasized);
+  animation: m3FadeIn 0.26s var(--m3-emphasized);
 }
 
 .tab-view.active {
   display: block;
+}
+
+.tab-view.slide-from-right {
+  animation: tabSlideFromRight 0.28s var(--m3-emphasized);
+}
+
+.tab-view.slide-from-left {
+  animation: tabSlideFromLeft 0.28s var(--m3-emphasized);
+}
+
+@keyframes tabSlideFromRight {
+  from { opacity: 0; transform: translateX(26px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes tabSlideFromLeft {
+  from { opacity: 0; transform: translateX(-26px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.world-map-board {
+  transition: transform 0.26s var(--m3-emphasized), opacity 0.24s ease;
+}
+
+.world-map-board.is-zooming-in {
+  transform: scale(1.24);
+  opacity: 0;
+}
+
+.modal-biome-3d.is-entering {
+  animation: biomeZoomEnter 0.30s var(--m3-emphasized);
+}
+
+@keyframes biomeZoomEnter {
+  from { opacity: 0; transform: scale(0.92); }
+  to { opacity: 1; transform: scale(1); }
 }
 
 #tab-hoy.active {
@@ -721,11 +774,61 @@ body {
   border-radius: var(--md-sys-shape-corner-full);
 }
 
+.bereal-header-right {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .bereal-timer {
   font-weight: 800;
   font-size: 0.92rem;
   color: var(--tone-honey-fg);
   font-variant-numeric: tabular-nums;
+}
+
+.bereal-dismiss-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(40, 38, 34, 0.08);
+  color: var(--md-sys-color-on-surface-variant);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.bereal-dismiss-btn:active {
+  transform: scale(0.92);
+}
+
+:root[data-theme="dark"] .bereal-dismiss-btn {
+  background: rgba(255, 255, 255, 0.10);
+  color: var(--md-sys-color-on-surface);
+}
+
+.widget-pin-btn {
+  width: 100%;
+  margin-top: 12px;
+  padding: 12px 16px;
+  border-radius: var(--md-sys-shape-corner-full);
+  border: none;
+  background: var(--md-sys-color-primary);
+  color: var(--md-sys-color-on-primary);
+  font-family: inherit;
+  font-size: 0.86rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.widget-pin-btn:active {
+  transform: scale(0.98);
 }
 
 .bereal-prompt {
@@ -1532,6 +1635,9 @@ body {
   box-shadow: 0 8px 18px rgba(40, 38, 34, 0.10);
   cursor: pointer;
   transition: transform 0.18s var(--m3-spring), box-shadow 0.2s ease;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 88px;
+  contain: layout style paint;
 }
 
 .catalog-item:active {
@@ -1699,6 +1805,7 @@ body {
 }
 
 .floating-toolbar {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 4px;
@@ -1719,7 +1826,34 @@ body {
     0 3px 10px rgba(40, 38, 34, 0.08);
 }
 
+.ft-active-slider {
+  position: absolute;
+  top: 6px;
+  bottom: 6px;
+  left: 0;
+  border-radius: var(--md-sys-shape-corner-full);
+  background: rgba(196, 238, 212, 0.85);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.65),
+    0 2px 10px rgba(31, 122, 76, 0.16);
+  pointer-events: none;
+  z-index: 0;
+  transition:
+    transform 0.32s var(--m3-spring),
+    width 0.30s var(--m3-emphasized),
+    opacity 0.20s ease;
+}
+
+:root[data-theme="dark"] .ft-active-slider {
+  background: rgba(74, 158, 112, 0.28);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    0 2px 12px rgba(0, 0, 0, 0.28);
+}
+
 .ft-item {
+  position: relative;
+  z-index: 1;
   border: none;
   background: transparent;
   display: flex;
@@ -1731,7 +1865,6 @@ body {
   font-family: inherit;
   color: rgba(40, 38, 34, 0.84);
   transition:
-    background 0.25s var(--m3-emphasized),
     color 0.2s ease,
     padding 0.22s var(--m3-emphasized),
     transform 0.25s var(--m3-spring);
@@ -1763,12 +1896,10 @@ body {
 }
 
 .ft-item.active {
-  background: rgba(196, 238, 212, 0.82);
+  background: transparent;
   color: #0B3D24;
   padding: 9px 15px;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.65),
-    0 2px 10px rgba(31, 122, 76, 0.16);
+  box-shadow: none;
 }
 
 .ft-item.active .ft-pill .material-symbols-rounded {
@@ -3577,7 +3708,12 @@ body.is-beta-off .beta-only-block {
   color: rgba(242, 241, 238, 0.82);
 }
 
-:root[data-theme="dark"] .ft-item.active,
+:root[data-theme="dark"] .ft-item.active {
+  background: transparent;
+  color: #C6EBD5;
+  box-shadow: none;
+}
+
 :root[data-theme="dark"] .floating-biomes-fab.active {
   background: rgba(78, 168, 118, 0.24);
   color: #C6EBD5;
@@ -3798,7 +3934,7 @@ body.is-beta-off .beta-only-block {
   color: #1F7A4C;
 }
 
-:root[data-theme="dark"] .modal-overlay:not(.modal-oled) {
+:root[data-theme="dark"] .modal-overlay:not(.modal-oled):not(.modal-biome-3d):not(.modal-explore-costa) {
   background: rgba(8, 10, 8, 0.64);
 }
 
@@ -4945,11 +5081,12 @@ body.is-beta-off .beta-only-block {
 
 .pixel-wallpaper-stage {
   border-radius: 28px;
-  padding: 14px 12px 18px;
-  min-height: 248px;
+  padding: 12px 12px 14px;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
+  justify-content: flex-start;
+  gap: 10px;
   transition: background 0.35s ease;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.25);
 }
@@ -4976,7 +5113,7 @@ body.is-beta-off .beta-only-block {
   font-size: 0.68rem;
   font-weight: 700;
   color: rgba(255, 255, 255, 0.88);
-  padding: 0 6px 8px;
+  padding: 0 6px 2px;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
 }
 
