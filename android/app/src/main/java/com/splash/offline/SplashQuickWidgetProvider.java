@@ -17,13 +17,24 @@ public class SplashQuickWidgetProvider extends AppWidgetProvider {
         updateAllWidgets(context, appWidgetManager, appWidgetIds);
     }
 
+    private static PendingIntent createTimerPendingIntent(Context context, int minutes, int reqCode, String action) {
+        Intent intent = new Intent(context, MainActivity.class);
+        intent.setAction(action);
+        intent.putExtra("splash_timer_min", minutes);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        int flags = PendingIntent.FLAG_UPDATE_CURRENT;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            flags |= PendingIntent.FLAG_IMMUTABLE;
+        }
+        return PendingIntent.getActivity(context, reqCode, intent, flags);
+    }
+
     public static void updateAllWidgets(Context context, AppWidgetManager appWidgetManager, int[] appWidgetIds) {
         SharedPreferences prefs = context.getSharedPreferences("splash_widget", Context.MODE_PRIVATE);
         String biomeShort = prefs.getString("biomeShort", "Valle");
         String levelLabel = prefs.getString("levelLabel", "Nv. 1");
         String weatherLabel = prefs.getString("weatherLabel", "Atardecer");
         String themeMode = prefs.getString("themeMode", "auto");
-        boolean isEn = prefs.getBoolean("isEn", false);
 
         Intent launchIntent = new Intent(context, MainActivity.class);
         launchIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
@@ -31,7 +42,10 @@ public class SplashQuickWidgetProvider extends AppWidgetProvider {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             flags |= PendingIntent.FLAG_IMMUTABLE;
         }
-        PendingIntent pendingIntent = PendingIntent.getActivity(context, 2, launchIntent, flags);
+        PendingIntent openAppPending = PendingIntent.getActivity(context, 2, launchIntent, flags);
+        PendingIntent pi2m = createTimerPendingIntent(context, 2, 202, "com.splash.offline.TIMER_2");
+        PendingIntent pi15m = createTimerPendingIntent(context, 15, 215, "com.splash.offline.TIMER_15");
+        PendingIntent pi30m = createTimerPendingIntent(context, 30, 230, "com.splash.offline.TIMER_30");
 
         for (int appWidgetId : appWidgetIds) {
             RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.widget_splash_quick);
@@ -63,8 +77,11 @@ public class SplashQuickWidgetProvider extends AppWidgetProvider {
             views.setTextViewText(R.id.widget_quick_sub, biomeShort + " " + levelLabel + " · " + weatherLabel);
             views.setTextViewText(R.id.widget_quick_btn_2m, "2 min");
             views.setTextViewText(R.id.widget_quick_btn_15m, "15 min");
-            views.setTextViewText(R.id.widget_quick_btn_wk, isEn ? "Weekly" : "Semanal");
-            views.setOnClickPendingIntent(R.id.widget_quick_root, pendingIntent);
+            views.setTextViewText(R.id.widget_quick_btn_wk, "30 min");
+            views.setOnClickPendingIntent(R.id.widget_quick_root, openAppPending);
+            views.setOnClickPendingIntent(R.id.widget_quick_btn_2m, pi2m);
+            views.setOnClickPendingIntent(R.id.widget_quick_btn_15m, pi15m);
+            views.setOnClickPendingIntent(R.id.widget_quick_btn_wk, pi30m);
             appWidgetManager.updateAppWidget(appWidgetId, views);
         }
     }

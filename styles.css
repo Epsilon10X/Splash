@@ -508,24 +508,12 @@ body {
 
 .world-map-board {
   transform-style: preserve-3d;
-  will-change: transform, opacity;
-  transition:
-    transform 0.44s cubic-bezier(0.22, 1, 0.36, 1),
-    opacity 0.36s ease;
+  will-change: transform;
+  transition: transform 0.44s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .world-map-board.is-zooming-in {
-  transform: rotateX(36deg) scale3d(3.2, 3.2, 1) translate3d(0, 0, 140px);
-  opacity: 0;
-}
-
-.modal-biome-3d.is-entering {
-  animation: biome3DDiveIn 0.46s cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-@keyframes biome3DDiveIn {
-  from { opacity: 0; transform: perspective(950px) rotateX(18deg) scale3d(0.84, 0.84, 1); }
-  to { opacity: 1; transform: perspective(950px) rotateX(0deg) scale3d(1, 1, 1); }
+  transform: rotateX(34deg) scale3d(3.2, 3.2, 1) translate3d(0, 0, 140px);
 }
 
 @keyframes modalOverlayIn {
@@ -2410,6 +2398,13 @@ body {
   line-height: 1.5;
 }
 
+.analog-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: center;
+}
+
 .btn-dark-sage {
   background: #234732;
   color: #DDF2E4;
@@ -2420,6 +2415,12 @@ body {
   font-weight: 700;
   font-size: 0.92rem;
   cursor: pointer;
+}
+
+.btn-dark-ghost {
+  background: rgba(255, 255, 255, 0.06);
+  color: #9FB1A6;
+  border-color: rgba(255, 255, 255, 0.14);
 }
 
 /* Cámara */
@@ -2643,6 +2644,19 @@ body {
   background: radial-gradient(circle at 50% 42%, #FFFFFF 0%, #EFECE4 100%);
   backdrop-filter: none;
   display: block;
+  animation: none;
+  opacity: 1;
+  transform: scale3d(1, 1, 1);
+  will-change: opacity, transform;
+  transition:
+    opacity 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.34s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.modal-biome-3d.is-pre-enter {
+  opacity: 0;
+  transform: perspective(950px) rotateX(14deg) scale3d(0.88, 0.88, 1);
+  transition: none;
 }
 
 .modal-biome-3d[data-biome="jungla"] {

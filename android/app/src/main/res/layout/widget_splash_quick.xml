@@ -76,7 +76,7 @@
             android:layout_weight="1"
             android:background="@drawable/widget_quick_chip_auto"
             android:gravity="center"
-            android:text="Semanal"
+            android:text="30 min"
             android:textColor="@color/widget_chip_text"
             android:textSize="12sp"
             android:textStyle="bold" />

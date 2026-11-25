@@ -38,6 +38,7 @@ public class MainActivity extends BridgeActivity {
     private static final String CHANNEL_ID = "splash_reminders";
     private static final int REQ_POST_NOTIFICATIONS = 1001;
     private int nextNotifId = 200;
+    private volatile int pendingTimerMinutes = 0;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -47,6 +48,7 @@ public class MainActivity extends BridgeActivity {
         createNotificationChannel();
         requestNotificationPermissionIfNeeded();
         SplashNotificationScheduler.scheduleNext(this);
+        handleTimerIntent(getIntent(), false);
 
         int nightModeFlags = getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK;
         boolean isDark = nightModeFlags == Configuration.UI_MODE_NIGHT_YES;
@@ -67,6 +69,31 @@ public class MainActivity extends BridgeActivity {
         if (getBridge() != null && getBridge().getWebView() != null) {
             WebView webView = getBridge().getWebView();
             webView.addJavascriptInterface(new SplashNativeBridge(), "SplashNative");
+        }
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        handleTimerIntent(intent, true);
+    }
+
+    private void handleTimerIntent(Intent intent, boolean dispatchImmediately) {
+        if (intent == null) return;
+        int mins = intent.getIntExtra("splash_timer_min", 0);
+        if (mins <= 0) return;
+        pendingTimerMinutes = mins;
+        intent.removeExtra("splash_timer_min");
+
+        if (dispatchImmediately && getBridge() != null && getBridge().getWebView() != null) {
+            final int targetMins = mins;
+            WebView webView = getBridge().getWebView();
+            webView.post(() -> {
+                String js = "window.dispatchEvent(new CustomEvent('splash-widget-timer',{detail:{minutes:" + targetMins + "}}));";
+                webView.evaluateJavascript(js, null);
+                pendingTimerMinutes = 0;
+            });
         }
     }
 
@@ -180,6 +207,13 @@ public class MainActivity extends BridgeActivity {
     }
 
     private class SplashNativeBridge {
+        @JavascriptInterface
+        public int consumePendingTimerMinutes() {
+            int mins = pendingTimerMinutes;
+            pendingTimerMinutes = 0;
+            return mins;
+        }
+
         @JavascriptInterface
         public void setSystemBarsTheme(boolean isDark, String bgHex) {
             runOnUiThread(() -> applySystemBarsAppearance(isDark, bgHex));

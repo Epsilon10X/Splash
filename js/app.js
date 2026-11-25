@@ -374,7 +374,10 @@
     goal: null,
     elapsedSeconds: 0,
     pausedByLeave: false,
-    intervalId: null
+    intervalId: null,
+    countdownMode: false,
+    remainingSeconds: 0,
+    running: false
   };
 
   let cameraStream = null;
@@ -1659,10 +1662,21 @@
   }
 
   function openAnalogModal(goal) {
+    activeAnalog.countdownMode = false;
+    activeAnalog.running = false;
+    activeAnalog.remainingSeconds = 0;
     activeAnalog.goal = goal;
     activeAnalog.elapsedSeconds = 0;
     activeAnalog.pausedByLeave = false;
     clearInterval(activeAnalog.intervalId);
+
+    const toggleBtn = document.getElementById('btn-analog-toggle');
+    const completeBtn = document.getElementById('btn-analog-complete');
+    if (toggleBtn) toggleBtn.classList.add('hidden');
+    if (completeBtn) {
+      completeBtn.classList.remove('btn-dark-ghost');
+      completeBtn.textContent = tx('Ya terminé este reto', 'I finished this challenge');
+    }
 
     document.getElementById('analog-icon').textContent = goal.icono || 'auto_stories';
     document.getElementById('analog-goal-title').textContent = goal.titulo;
@@ -1683,15 +1697,64 @@
     document.getElementById('modal-analog').classList.remove('hidden');
   }
 
+  function openWidgetOledTimer(minutes) {
+    const mins = [2, 15, 30].includes(Number(minutes)) ? Number(minutes) : 15;
+    ['modal-simulator', 'modal-widgets', 'modal-biome-3d', 'modal-timer'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.classList.add('hidden');
+    });
+    if (viewer3D.open) {
+      viewer3D.open = false;
+      if (viewer3D.rafId) {
+        cancelAnimationFrame(viewer3D.rafId);
+        viewer3D.rafId = null;
+      }
+    }
+    clearInterval(activeAnalog.intervalId);
+    activeAnalog.countdownMode = true;
+    activeAnalog.goal = null;
+    activeAnalog.remainingSeconds = mins * 60;
+    activeAnalog.elapsedSeconds = 0;
+    activeAnalog.running = false;
+    activeAnalog.pausedByLeave = false;
+
+    const toggleBtn = document.getElementById('btn-analog-toggle');
+    const completeBtn = document.getElementById('btn-analog-complete');
+    if (toggleBtn) {
+      toggleBtn.classList.remove('hidden');
+      toggleBtn.textContent = tx('Activar temporizador', 'Start timer');
+    }
+    if (completeBtn) {
+      completeBtn.classList.add('btn-dark-ghost');
+      completeBtn.textContent = tx('Cerrar', 'Close');
+    }
+
+    document.getElementById('analog-icon').textContent = 'timer';
+    document.getElementById('analog-goal-title').textContent = tx(
+      `Temporizador anti-pantalla · ${mins} min`,
+      `Screen-free timer · ${mins} min`
+    );
+    document.getElementById('analog-status').textContent = tx(
+      'Pulsa activar y deja el móvil boca abajo para desconectar.',
+      'Tap start and place your phone face down to disconnect.'
+    );
+    updateAnalogTimerUI();
+    updateAnalogSoundBtn();
+    document.getElementById('modal-analog').classList.remove('hidden');
+  }
+
   function updateAnalogTimerUI() {
-    const m = String(Math.floor(activeAnalog.elapsedSeconds / 60)).padStart(2, '0');
-    const s = String(activeAnalog.elapsedSeconds % 60).padStart(2, '0');
+    const secs = activeAnalog.countdownMode ? activeAnalog.remainingSeconds : activeAnalog.elapsedSeconds;
+    const m = String(Math.floor(secs / 60)).padStart(2, '0');
+    const s = String(secs % 60).padStart(2, '0');
     document.getElementById('analog-timer').textContent = `${m}:${s}`;
   }
 
   function closeAnalogModal() {
     clearInterval(activeAnalog.intervalId);
     activeAnalog.goal = null;
+    activeAnalog.countdownMode = false;
+    activeAnalog.running = false;
     window.BroteAudio.stopAmbient();
     updateAnalogSoundBtn();
     document.getElementById('modal-analog').classList.add('hidden');
@@ -1699,11 +1762,11 @@
 
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') {
-      if (activeAnalog.goal) {
+      if (activeAnalog.goal || (activeAnalog.countdownMode && activeAnalog.running)) {
         activeAnalog.pausedByLeave = true;
       }
     } else if (document.visibilityState === 'visible') {
-      if (activeAnalog.goal && activeAnalog.pausedByLeave) {
+      if ((activeAnalog.goal || activeAnalog.countdownMode) && activeAnalog.pausedByLeave) {
         activeAnalog.pausedByLeave = false;
         document.getElementById('analog-status').textContent = tx(
           'Pausado suavemente mientras estuviste fuera. Retoma cuando quieras, cero culpa.',
@@ -1823,9 +1886,10 @@
   }
 
   let pendingMapRefreshOnViewerClose = false;
+  let isMapDiving = false;
 
   function navigateToBiomeFromMap(biomeId) {
-    if (!biomeId) return;
+    if (!biomeId || isMapDiving) return;
     const unlocked = isBiomeUnlocked(biomeId);
     if (!unlocked) {
       const bMeta = window.BroteMascot.getBiome(biomeId);
@@ -1837,6 +1901,7 @@
       return;
     }
 
+    isMapDiving = true;
     const board = document.querySelector('#muro-panel-archipielago .world-map-board');
     const zone = window.BroteWorldMap && typeof window.BroteWorldMap.getZone === 'function'
       ? window.BroteWorldMap.getZone(biomeId)
@@ -1849,17 +1914,11 @@
       saveState();
       pendingMapRefreshOnViewerClose = true;
 
-      const modalEl = document.getElementById('modal-biome-3d');
-      if (modalEl) {
-        modalEl.classList.remove('is-entering');
-        void modalEl.offsetWidth;
-        modalEl.classList.add('is-entering');
-        setTimeout(() => modalEl.classList.remove('is-entering'), 480);
-      }
       openBiome3DViewer(biomeId, { fromMapZoom: true });
-      if (board) {
-        setTimeout(() => board.classList.remove('is-zooming-in'), 500);
-      }
+      setTimeout(() => {
+        if (board) board.classList.remove('is-zooming-in');
+        isMapDiving = false;
+      }, 560);
     }
 
     if (board) {
@@ -1869,7 +1928,7 @@
       board.classList.remove('is-zooming-in');
       void board.offsetWidth;
       board.classList.add('is-zooming-in');
-      setTimeout(launchBiomeViewer, 240);
+      setTimeout(launchBiomeViewer, 220);
     } else {
       launchBiomeViewer();
     }
@@ -2543,12 +2602,17 @@
     filtered.sort((a, b) => {
       const aLocked = a.biomaExclusivo && !isBiomeUnlocked(a.biomaExclusivo) ? 1 : 0;
       const bLocked = b.biomaExclusivo && !isBiomeUnlocked(b.biomaExclusivo) ? 1 : 0;
-      if (aLocked !== bLocked) return aLocked - bLocked;
       if (catalogFilter === 'ALL') {
-        const aSec = a.esSecretoBioma ? 0 : 1;
-        const bSec = b.esSecretoBioma ? 0 : 1;
-        if (aSec !== bSec) return aSec - bSec;
+        const rankOf = (g) => {
+          if (g.esSecretoBioma || g.biomaExclusivo) return 3;
+          if (g.categoria === 'RAPIDO') return 0;
+          if (g.categoria === 'MEDIO') return 1;
+          return 2;
+        };
+        const rDiff = rankOf(a) - rankOf(b);
+        if (rDiff !== 0) return rDiff;
       }
+      if (aLocked !== bLocked) return aLocked - bLocked;
       return 0;
     });
 
@@ -3167,7 +3231,7 @@
     }
   }
 
-  function renderViewerFrame(nowMs) {
+  function renderViewerFrame(nowMs, drawOnly = false) {
     if (!viewer3D.open) return;
 
     const now = typeof nowMs === 'number' ? nowMs : performance.now();
@@ -3182,14 +3246,14 @@
       viewer3D.velPitch !== 0 ||
       Math.abs(viewer3D.targetZoom - viewer3D.zoom) > 0.002;
 
-    if (!isMoving && viewer3D.lastDrawMs && (now - viewer3D.lastDrawMs) < 48) {
+    if (!drawOnly && !isMoving && viewer3D.lastDrawMs && (now - viewer3D.lastDrawMs) < 48) {
       viewer3D.rafId = requestAnimationFrame(renderViewerFrame);
       return;
     }
     viewer3D.lastDrawMs = now;
 
     const flyK = 1 - Math.exp(-9.5 * dt);
-    if (viewer3D.pointers.size === 0) {
+    if (!drawOnly && viewer3D.pointers.size === 0) {
       if (viewer3D.targetYaw !== null) {
         viewer3D.yaw += (viewer3D.targetYaw - viewer3D.yaw) * flyK;
         if (Math.abs(viewer3D.targetYaw - viewer3D.yaw) < 0.002) {
@@ -3217,7 +3281,9 @@
       if (Math.abs(viewer3D.velPitch) < 0.0002) viewer3D.velPitch = 0;
     }
 
-    viewer3D.zoom += (viewer3D.targetZoom - viewer3D.zoom) * flyK;
+    if (!drawOnly) {
+      viewer3D.zoom += (viewer3D.targetZoom - viewer3D.zoom) * flyK;
+    }
 
     const viewBiome = viewer3D.biome || (state.lumi && state.lumi.biome) || 'valle';
     const isOverride = state.lumi.betaPointsOverride !== null && typeof state.lumi.betaPointsOverride === 'number';
@@ -3241,7 +3307,9 @@
       maxDpr: 1.25
     });
 
-    viewer3D.rafId = requestAnimationFrame(renderViewerFrame);
+    if (!drawOnly) {
+      viewer3D.rafId = requestAnimationFrame(renderViewerFrame);
+    }
   }
 
   function openBiome3DViewer(previewBiomeId, opts = {}) {
@@ -3269,10 +3337,19 @@
     viewer3D.lastPinchDist = null;
 
     document.getElementById('viewer-hint').classList.remove('is-hidden');
-    document.getElementById('modal-biome-3d').classList.remove('hidden');
+    const modalEl = document.getElementById('modal-biome-3d');
+    if (opts && opts.fromMapZoom && modalEl) {
+      modalEl.classList.add('is-pre-enter');
+    }
+    modalEl.classList.remove('hidden');
     updateViewerUI();
 
     if (viewer3D.rafId) cancelAnimationFrame(viewer3D.rafId);
+    renderViewerFrame(performance.now(), true);
+    if (opts && opts.fromMapZoom && modalEl) {
+      void modalEl.offsetWidth;
+      modalEl.classList.remove('is-pre-enter');
+    }
     viewer3D.rafId = requestAnimationFrame(renderViewerFrame);
   }
 
@@ -3399,9 +3476,9 @@
             <span>${biomeMeta.shortName} ${tx('Nv.', 'Lvl.')}${lvl} · ${getWeatherLabel(weatherMode, resolvedPhase)}</span>
           </div>
           <div class="m3e-lock-actions">
-            <button type="button" class="m3e-lock-pill-btn" data-wcat="RAPIDO">2 min</button>
-            <button type="button" class="m3e-lock-pill-btn" data-wcat="MEDIO">15 min</button>
-            <button type="button" class="m3e-lock-pill-btn" data-wcat="LARGO">${tx('Semanal', 'Weekly')}</button>
+            <button type="button" class="m3e-lock-pill-btn">2 min</button>
+            <button type="button" class="m3e-lock-pill-btn">15 min</button>
+            <button type="button" class="m3e-lock-pill-btn">30 min</button>
           </div>
         </div>
       `;
@@ -4038,10 +4115,57 @@
       });
     }
 
+    const analogToggleBtn = document.getElementById('btn-analog-toggle');
+    if (analogToggleBtn) {
+      analogToggleBtn.addEventListener('click', () => {
+        if (!activeAnalog.countdownMode) return;
+        if (activeAnalog.running) {
+          clearInterval(activeAnalog.intervalId);
+          activeAnalog.running = false;
+          analogToggleBtn.textContent = tx('Reanudar', 'Resume');
+          document.getElementById('analog-status').textContent = tx(
+            'Temporizador en pausa. Retoma cuando quieras.',
+            'Timer paused. Resume anytime.'
+          );
+        } else {
+          if (activeAnalog.remainingSeconds <= 0) return;
+          activeAnalog.running = true;
+          analogToggleBtn.textContent = tx('Pausar', 'Pause');
+          document.getElementById('analog-status').textContent = tx(
+            'Temporizador activo. Deja el móvil boca abajo y desconecta.',
+            'Timer active. Place your phone face down and unplug.'
+          );
+          clearInterval(activeAnalog.intervalId);
+          activeAnalog.intervalId = setInterval(() => {
+            if (activeAnalog.pausedByLeave || !activeAnalog.running) return;
+            if (activeAnalog.remainingSeconds > 0) {
+              activeAnalog.remainingSeconds--;
+              updateAnalogTimerUI();
+            }
+            if (activeAnalog.remainingSeconds <= 0) {
+              clearInterval(activeAnalog.intervalId);
+              activeAnalog.running = false;
+              analogToggleBtn.textContent = tx('Completado', 'Completed');
+              document.getElementById('analog-status').textContent = tx(
+                '¡Tiempo completado! Puedes volver cuando quieras.',
+                'Time completed! Come back whenever you are ready.'
+              );
+              window.BroteAudio.playBiomeChime(getActiveBiomeId());
+              showToast('timer', tx('Temporizador completado.', 'Timer completed.'));
+            }
+          }, 1000);
+        }
+      });
+    }
+
     document.getElementById('btn-analog-complete').addEventListener('click', () => {
+      if (activeAnalog.countdownMode) {
+        closeAnalogModal();
+        return;
+      }
       const g = activeAnalog.goal;
       closeAnalogModal();
-      completeGoal(g);
+      if (g) completeGoal(g);
     });
 
     document.getElementById('btn-take-snap').addEventListener('click', () => {
@@ -4664,6 +4788,19 @@
 
     if (beRealIntervalId) clearInterval(beRealIntervalId);
     beRealIntervalId = setInterval(updateBeRealCountdown, 1000);
+
+    window.addEventListener('splash-widget-timer', (e) => {
+      const m = e && e.detail ? Number(e.detail.minutes) : 0;
+      if (m > 0) openWidgetOledTimer(m);
+    });
+    try {
+      if (window.SplashNative && typeof window.SplashNative.consumePendingTimerMinutes === 'function') {
+        const pendingMin = Number(window.SplashNative.consumePendingTimerMinutes());
+        if (pendingMin > 0) {
+          openWidgetOledTimer(pendingMin);
+        }
+      }
+    } catch (_) {}
   }
 
   document.addEventListener('DOMContentLoaded', init);
