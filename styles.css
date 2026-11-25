@@ -128,12 +128,12 @@ body {
   position: relative;
   box-shadow: 0 24px 60px rgba(40, 38, 34, 0.12);
   overflow: hidden;
-  transition: opacity 0.16s ease, transform 0.2s var(--m3-emphasized);
+  transition: opacity 0.22s cubic-bezier(0.22, 1, 0.36, 1), transform 0.24s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .app-shell.is-lang-fading {
-  opacity: 0.35;
-  transform: scale(0.992);
+  opacity: 0.12;
+  transform: translate3d(0, 6px, 0) scale(0.985);
 }
 
 @media (min-width: 480px) {
@@ -423,7 +423,8 @@ body {
 
 .tab-view {
   display: none;
-  animation: m3FadeIn 0.26s var(--m3-emphasized);
+  will-change: transform, opacity;
+  animation: m3FadeIn 0.30s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .tab-view.active {
@@ -431,39 +432,54 @@ body {
 }
 
 .tab-view.slide-from-right {
-  animation: tabSlideFromRight 0.28s var(--m3-emphasized);
+  animation: tabSlideFromRight 0.36s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .tab-view.slide-from-left {
-  animation: tabSlideFromLeft 0.28s var(--m3-emphasized);
+  animation: tabSlideFromLeft 0.36s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 @keyframes tabSlideFromRight {
-  from { opacity: 0; transform: translateX(26px); }
-  to { opacity: 1; transform: translateX(0); }
+  from { opacity: 0; transform: translate3d(42px, 0, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
 }
 
 @keyframes tabSlideFromLeft {
-  from { opacity: 0; transform: translateX(-26px); }
-  to { opacity: 1; transform: translateX(0); }
+  from { opacity: 0; transform: translate3d(-42px, 0, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
 }
 
 .world-map-board {
-  transition: transform 0.26s var(--m3-emphasized), opacity 0.24s ease;
+  will-change: transform, opacity, filter;
+  transition:
+    transform 0.46s cubic-bezier(0.32, 0, 0.20, 1),
+    opacity 0.38s ease,
+    filter 0.38s ease;
 }
 
 .world-map-board.is-zooming-in {
-  transform: scale(1.24);
+  transform: scale(3.6) translateZ(0);
+  filter: blur(3px);
   opacity: 0;
 }
 
 .modal-biome-3d.is-entering {
-  animation: biomeZoomEnter 0.30s var(--m3-emphasized);
+  animation: biomeZoomEnter 0.42s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 @keyframes biomeZoomEnter {
-  from { opacity: 0; transform: scale(0.92); }
-  to { opacity: 1; transform: scale(1); }
+  from { opacity: 0; transform: scale(0.76) translateZ(0); }
+  to { opacity: 1; transform: scale(1) translateZ(0); }
+}
+
+@keyframes modalOverlayIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes modalCardPopIn {
+  from { opacity: 0; transform: translate3d(0, 18px, 0) scale(0.95); }
+  to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
 }
 
 #tab-hoy.active {
@@ -1838,10 +1854,11 @@ body {
     0 2px 10px rgba(31, 122, 76, 0.16);
   pointer-events: none;
   z-index: 0;
+  will-change: transform, width;
   transition:
-    transform 0.32s var(--m3-spring),
-    width 0.30s var(--m3-emphasized),
-    opacity 0.20s ease;
+    transform 0.36s cubic-bezier(0.22, 1, 0.36, 1),
+    width 0.36s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.22s ease;
 }
 
 :root[data-theme="dark"] .ft-active-slider {
@@ -1878,10 +1895,19 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  width: 20px;
+  opacity: 1;
+  overflow: hidden;
+  transition:
+    width 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.20s ease,
+    margin 0.28s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .ft-item:not(.active) .ft-pill {
-  display: none;
+  width: 0;
+  margin-right: -6px;
+  opacity: 0;
 }
 
 .ft-pill .material-symbols-rounded {
@@ -2009,6 +2035,7 @@ body {
   justify-content: center;
   padding: 16px;
   z-index: 100;
+  animation: modalOverlayIn 0.24s ease;
 }
 
 .modal-card {
@@ -2023,7 +2050,8 @@ body {
   overflow-y: auto;
   scrollbar-width: none;
   -ms-overflow-style: none;
-  animation: m3FadeIn 0.25s var(--m3-spring);
+  will-change: transform, opacity;
+  animation: modalCardPopIn 0.30s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .modal-close {
@@ -5089,6 +5117,12 @@ body.is-beta-off .beta-only-block {
   gap: 10px;
   transition: background 0.35s ease;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.25);
+}
+
+.pixel-wallpaper-stage .m3e-widget-4x2,
+.pixel-wallpaper-stage .m3e-widget-2x2,
+.pixel-wallpaper-stage .m3e-widget-lock {
+  pointer-events: none;
 }
 
 .pixel-wallpaper-stage[data-wtime="dawn"] {

@@ -1048,6 +1048,7 @@
       renderWidgetStudio();
     }
     syncAndroidWidget();
+    syncAndroidNotificationSchedule();
   }
 
   function sendNativeNotification(title, body) {
@@ -1062,23 +1063,129 @@
     } catch (_) {}
   }
 
+  let widgetBiomePngCacheKey = '';
+  let widgetBiomePngBase64 = '';
+  let widgetOffscreenCanvas = null;
+
+  function buildWidgetBiomePngBase64(activeId, pts, resolvedPhase, weatherMode) {
+    const key = `${activeId}|${pts}|${resolvedPhase}|${weatherMode}`;
+    if (key === widgetBiomePngCacheKey && widgetBiomePngBase64) {
+      return widgetBiomePngBase64;
+    }
+    try {
+      if (!window.BroteMascot || typeof window.BroteMascot.renderToCanvas !== 'function') return '';
+      if (!widgetOffscreenCanvas) {
+        widgetOffscreenCanvas = document.createElement('canvas');
+      }
+      const off = widgetOffscreenCanvas;
+      off.style.width = '240px';
+      off.style.height = '180px';
+      if (!off.parentElement) {
+        const fakeParent = { clientWidth: 240, clientHeight: 180, getBoundingClientRect: () => ({ width: 240, height: 180 }) };
+        Object.defineProperty(off, 'parentElement', { value: fakeParent, configurable: true });
+      }
+      window.BroteMascot.renderToCanvas(off, {
+        biome: activeId,
+        points: pts,
+        isAwake: resolvedPhase !== 'night',
+        timePhase: resolvedPhase,
+        weatherMode,
+        yaw: Math.PI / 4,
+        pitch: 0.60,
+        zoom: 1.08,
+        maxDpr: 1
+      });
+      const dataUrl = off.toDataURL('image/png');
+      const idx = dataUrl.indexOf('base64,');
+      widgetBiomePngBase64 = idx !== -1 ? dataUrl.slice(idx + 7) : '';
+      widgetBiomePngCacheKey = key;
+      return widgetBiomePngBase64;
+    } catch (_) {
+      return '';
+    }
+  }
+
   function syncAndroidWidget() {
     try {
-      if (!window.SplashNative || typeof window.SplashNative.updateWidget !== 'function') return;
+      if (!window.SplashNative) return;
       const activeId = getActiveBiomeId();
-      const bMeta = window.BroteMascot ? window.BroteMascot.getBiome(activeId) : { name: 'Valle Alpino' };
+      const bMeta = window.BroteMascot ? window.BroteMascot.getBiome(activeId) : { name: 'Valle Alpino', shortName: 'Valle' };
       const pts = getEffectiveBiomePoints();
       const lvl = window.BroteMascot ? window.BroteMascot.getLevelFromPoints(pts) : 1;
       const streak = getCumulativeStreak();
-      const firstId = state.dailySuggestions && state.dailySuggestions.RAPIDO && state.dailySuggestions.RAPIDO[0];
-      const nextGoalObj = state.catalog.find(g => g.id === firstId) || state.catalog[0];
-      const nextGoalTitle = nextGoalObj ? getShortTitle(nextGoalObj) : tx('Completa un reto de 2 min', 'Complete a 2-min goal');
-      window.SplashNative.updateWidget(
-        bMeta.name || 'Splash',
-        `${tx('Nv.', 'Lvl.')} ${lvl}`,
-        `${streak} ${streak === 1 ? tx('día', 'day') : tx('días', 'days')}`,
-        nextGoalTitle
-      );
+      const weatherMode = getLiveWeatherMode();
+      const resolvedPhase = widgetStudio.timeMode === 'auto'
+        ? (window.BroteMascot ? window.BroteMascot.getTimeOfDayPhase() : 'day')
+        : widgetStudio.timeMode;
+      const widgetIsDark =
+        widgetStudio.themeMode === 'dark' ||
+        (widgetStudio.themeMode === 'auto' && resolvedPhase === 'night');
+
+      const rId = (state.suggestions && state.suggestions.rapidos && state.suggestions.rapidos[0]) ||
+        (state.dailySuggestions && state.dailySuggestions.RAPIDO && state.dailySuggestions.RAPIDO[0]);
+      const mId = (state.suggestions && state.suggestions.medios && state.suggestions.medios[0]);
+      const g1 = state.catalog.find(g => g.id === rId) || state.catalog.find(g => g.categoria === 'RAPIDO') || state.catalog[0];
+      const g2 = state.catalog.find(g => g.id === mId) || state.catalog.find(g => g.categoria === 'MEDIO') || state.catalog[1];
+      const goal2Title = g1 ? getShortTitle(g1) : tx('Respirar aire fresco', 'Breathe fresh air');
+      const goal15Title = g2 ? getShortTitle(g2) : tx('Caminar sin móvil', 'Phone-free walk');
+
+      if (typeof window.SplashNative.updateWidgetRich === 'function') {
+        const pngB64 = buildWidgetBiomePngBase64(activeId, pts, resolvedPhase, weatherMode);
+        const payload = {
+          biomeName: bMeta.name || 'Valle Alpino',
+          biomeShort: bMeta.shortName || bMeta.name || 'Valle',
+          levelLabel: `${tx('Nv.', 'Lvl.')} ${lvl}`,
+          streakLabel: `${streak} ${streak === 1 ? tx('día', 'day') : tx('días', 'days')}`,
+          goal2Title,
+          goal15Title,
+          weatherLabel: typeof getWeatherLabel === 'function' ? getWeatherLabel(weatherMode, resolvedPhase) : 'Radiante',
+          isDark: widgetIsDark,
+          isEn: isEnglish(),
+          biomePngBase64: pngB64
+        };
+        window.SplashNative.updateWidgetRich(JSON.stringify(payload));
+      } else if (typeof window.SplashNative.updateWidget === 'function') {
+        window.SplashNative.updateWidget(
+          bMeta.name || 'Splash',
+          `${tx('Nv.', 'Lvl.')} ${lvl}`,
+          `${streak} ${streak === 1 ? tx('día', 'day') : tx('días', 'days')}`,
+          goal2Title
+        );
+      }
+    } catch (_) {}
+  }
+
+  function syncAndroidNotificationSchedule() {
+    try {
+      if (!window.SplashNative || typeof window.SplashNative.syncNotificationSchedule !== 'function') return;
+      const activeId = getActiveBiomeId();
+      const notifMeta = BIOME_NOTIFS[activeId] || BIOME_NOTIFS.valle;
+      const sched = getEffectiveScheduleForWeek(getBroteWeekKey());
+
+      function buildWeightedPool(category, limit) {
+        const pool = [];
+        state.catalog.forEach(g => {
+          if (g.categoria !== category || g.estaOculto) return;
+          if (g.biomaExclusivo && !isBiomeUnlocked(g.biomaExclusivo)) return;
+          let w = 1;
+          if (g.esFavorito) w += 2;
+          if (g.biomaExclusivo === activeId) w += 1;
+          for (let i = 0; i < w && pool.length < limit; i++) {
+            pool.push(g.titulo);
+          }
+        });
+        return pool;
+      }
+
+      const payload = {
+        schedule: sched,
+        quickPool: buildWeightedPool('RAPIDO', 32),
+        medioPool: buildWeightedPool('MEDIO', 20),
+        quickBadge: notifMeta.quickBadge,
+        medioBadge: notifMeta.medioBadge,
+        lang: isEnglish() ? 'en' : 'es'
+      };
+      window.SplashNative.syncNotificationSchedule(JSON.stringify(payload));
     } catch (_) {}
   }
 
@@ -1732,11 +1839,11 @@
         modalEl.classList.remove('is-entering');
         void modalEl.offsetWidth;
         modalEl.classList.add('is-entering');
-        setTimeout(() => modalEl.classList.remove('is-entering'), 340);
+        setTimeout(() => modalEl.classList.remove('is-entering'), 440);
       }
-      openBiome3DViewer(biomeId);
+      openBiome3DViewer(biomeId, { fromMapZoom: true });
       if (board) {
-        board.classList.remove('is-zooming-in');
+        setTimeout(() => board.classList.remove('is-zooming-in'), 160);
       }
       if (!unlocked) {
         const bMeta = window.BroteMascot.getBiome(biomeId);
@@ -1752,8 +1859,10 @@
       if (zone) {
         board.style.transformOrigin = `${zone.cx}px ${zone.cy}px`;
       }
+      board.classList.remove('is-zooming-in');
+      void board.offsetWidth;
       board.classList.add('is-zooming-in');
-      setTimeout(launchBiomeViewer, 210);
+      setTimeout(launchBiomeViewer, 320);
     } else {
       launchBiomeViewer();
     }
@@ -2735,6 +2844,7 @@
         </div>
       </div>
     `;
+    syncAndroidNotificationSchedule();
   }
 
   // --- PESTAÑA 4: GALERÍA DE BIOMAS APILADOS ---
@@ -3082,7 +3192,7 @@
     viewer3D.rafId = requestAnimationFrame(renderViewerFrame);
   }
 
-  function openBiome3DViewer(previewBiomeId) {
+  function openBiome3DViewer(previewBiomeId, opts = {}) {
     viewer3D.open = true;
     viewer3D.biome = typeof previewBiomeId === 'string' && previewBiomeId
       ? previewBiomeId
@@ -3091,6 +3201,10 @@
     viewer3D.soundOn = false;
     viewer3D.velYaw = 0;
     viewer3D.velPitch = 0;
+    if (opts && opts.fromMapZoom) {
+      viewer3D.zoom = 0.62;
+      viewer3D.targetZoom = 1.05;
+    }
     viewer3D.pointers.clear();
     viewer3D.lastPinchDist = null;
 
@@ -3228,37 +3342,6 @@
       `;
     }
 
-    stage.querySelectorAll('[data-wgoal-id]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const gId = Number(btn.dataset.wgoalId);
-        const goal = state.catalog.find(x => x.id === gId);
-        if (!goal) return;
-        if (goal.categoria === 'RAPIDO') {
-          completeGoal(goal, { allowPhoto: true });
-        } else {
-          widgetStudio.open = false;
-          document.getElementById('modal-widgets').classList.add('hidden');
-          handleGoalTap(goal);
-        }
-      });
-    });
-
-    stage.querySelectorAll('[data-wcat]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const cat = btn.dataset.wcat;
-        const [pickId] = pickWeightedGoals(cat, 1);
-        const goal = state.catalog.find(x => x.id === pickId);
-        if (!goal) return;
-        if (cat === 'RAPIDO') {
-          completeGoal(goal, { allowPhoto: true });
-        } else {
-          widgetStudio.open = false;
-          document.getElementById('modal-widgets').classList.add('hidden');
-          handleGoalTap(goal);
-        }
-      });
-    });
-
     const wCanvas = document.getElementById('widget-biome-canvas');
     if (wCanvas) {
       requestAnimationFrame(() => {
@@ -3274,6 +3357,7 @@
         });
       });
     }
+    syncAndroidWidget();
   }
 
   function bindEvents() {
@@ -3291,13 +3375,14 @@
       }
       slider.style.opacity = '1';
       slider.style.width = `${activeBtn.offsetWidth}px`;
-      slider.style.transform = `translateX(${activeBtn.offsetLeft}px)`;
+      slider.style.transform = `translate3d(${activeBtn.offsetLeft}px, 0, 0)`;
     }
 
     requestAnimationFrame(() => updateNavSlider(currentTabId));
     window.addEventListener('resize', () => updateNavSlider(currentTabId));
 
     function openTab(targetId) {
+      if (targetId === currentTabId) return;
       const prevIdx = TAB_ORDER.indexOf(currentTabId);
       const nextIdx = TAB_ORDER.indexOf(targetId);
       const dirClass = nextIdx > prevIdx ? 'slide-from-right' : nextIdx < prevIdx ? 'slide-from-left' : '';
@@ -3316,17 +3401,18 @@
         }
       });
       requestAnimationFrame(() => updateNavSlider(targetId));
+      setTimeout(() => updateNavSlider(targetId), 300);
 
       const mainEl = document.getElementById('main-content');
       if (mainEl) mainEl.scrollTop = 0;
       if (targetId === 'tab-biomas') {
-        renderBiomesStack();
+        requestAnimationFrame(() => renderBiomesStack());
       } else {
         biomeStackRenderToken++;
         if (targetId === 'tab-hoy') {
-          renderMascot(false);
+          requestAnimationFrame(() => renderMascot(false));
         } else if (targetId === 'tab-muro') {
-          renderMuroSocialViews();
+          requestAnimationFrame(() => renderMuroSocialViews());
         } else if (targetId === 'tab-catalogo' && catalogDirty) {
           requestAnimationFrame(() => renderCatalog());
         }
@@ -3754,6 +3840,7 @@
             showToast('notifications_active', tx('Notificaciones ya permitidas. Te enviamos una prueba.', 'Notifications already enabled. Test sent.'));
           } else {
             window.SplashNative.requestNotificationPermission();
+            syncAndroidNotificationSchedule();
             showToast('notifications', tx('Acepta el permiso de notificaciones en Android.', 'Allow the Android notification permission prompt.'));
           }
           return;
@@ -3985,10 +4072,12 @@
           if (viewer3D.open) updateViewerUI();
           requestAnimationFrame(() => {
             updateNavSlider(currentTabId);
-            if (shell) shell.classList.remove('is-lang-fading');
+            requestAnimationFrame(() => {
+              if (shell) shell.classList.remove('is-lang-fading');
+            });
           });
           showToast('translate', nextLang === 'en' ? 'Language switched to English.' : 'Idioma cambiado a Español.');
-        }, 120);
+        }, 200);
       });
     }
 

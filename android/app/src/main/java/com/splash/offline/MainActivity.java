@@ -14,6 +14,7 @@ import android.content.res.Configuration;
 import android.graphics.Color;
 import android.os.Build;
 import android.os.Bundle;
+import android.util.Base64;
 import android.view.View;
 import android.view.Window;
 import android.webkit.JavascriptInterface;
@@ -27,6 +28,9 @@ import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
 import com.getcapacitor.BridgeActivity;
+import java.io.File;
+import java.io.FileOutputStream;
+import org.json.JSONObject;
 
 public class MainActivity extends BridgeActivity {
     private static final String CHANNEL_ID = "splash_reminders";
@@ -39,6 +43,7 @@ public class MainActivity extends BridgeActivity {
 
         createNotificationChannel();
         requestNotificationPermissionIfNeeded();
+        SplashNotificationScheduler.scheduleNext(this);
 
         int nightModeFlags = getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK;
         boolean isDark = nightModeFlags == Configuration.UI_MODE_NIGHT_YES;
@@ -122,6 +127,22 @@ public class MainActivity extends BridgeActivity {
         }
     }
 
+    private void refreshAllWidgets() {
+        AppWidgetManager mgr = AppWidgetManager.getInstance(this);
+        int[] ids4x2 = mgr.getAppWidgetIds(new ComponentName(this, SplashWidgetProvider.class));
+        if (ids4x2 != null && ids4x2.length > 0) {
+            SplashWidgetProvider.updateAllWidgets(this, mgr, ids4x2);
+        }
+        int[] ids2x2 = mgr.getAppWidgetIds(new ComponentName(this, SplashBiomeWidgetProvider.class));
+        if (ids2x2 != null && ids2x2.length > 0) {
+            SplashBiomeWidgetProvider.updateAllWidgets(this, mgr, ids2x2);
+        }
+        int[] idsQuick = mgr.getAppWidgetIds(new ComponentName(this, SplashQuickWidgetProvider.class));
+        if (idsQuick != null && idsQuick.length > 0) {
+            SplashQuickWidgetProvider.updateAllWidgets(this, mgr, idsQuick);
+        }
+    }
+
     private class SplashNativeBridge {
         @JavascriptInterface
         public void setSystemBarsTheme(boolean isDark, String bgHex) {
@@ -144,6 +165,12 @@ public class MainActivity extends BridgeActivity {
                     );
                 }
             });
+        }
+
+        @JavascriptInterface
+        public void syncNotificationSchedule(String jsonStr) {
+            SplashNotificationScheduler.savePayload(MainActivity.this, jsonStr);
+            SplashNotificationScheduler.scheduleNext(MainActivity.this);
         }
 
         @JavascriptInterface
@@ -206,19 +233,36 @@ public class MainActivity extends BridgeActivity {
                 .putString("streakLabel", streakLabel != null ? streakLabel : "0 días")
                 .putString("nextGoal", nextGoal != null ? nextGoal : "Respirar aire fresco")
                 .apply();
+            refreshAllWidgets();
+        }
 
-            AppWidgetManager mgr = AppWidgetManager.getInstance(MainActivity.this);
-            int[] ids4x2 = mgr.getAppWidgetIds(new ComponentName(MainActivity.this, SplashWidgetProvider.class));
-            if (ids4x2 != null && ids4x2.length > 0) {
-                SplashWidgetProvider.updateAllWidgets(MainActivity.this, mgr, ids4x2);
-            }
-            int[] ids2x2 = mgr.getAppWidgetIds(new ComponentName(MainActivity.this, SplashBiomeWidgetProvider.class));
-            if (ids2x2 != null && ids2x2.length > 0) {
-                SplashBiomeWidgetProvider.updateAllWidgets(MainActivity.this, mgr, ids2x2);
-            }
-            int[] idsQuick = mgr.getAppWidgetIds(new ComponentName(MainActivity.this, SplashQuickWidgetProvider.class));
-            if (idsQuick != null && idsQuick.length > 0) {
-                SplashQuickWidgetProvider.updateAllWidgets(MainActivity.this, mgr, idsQuick);
+        @JavascriptInterface
+        public void updateWidgetRich(String jsonStr) {
+            if (jsonStr == null || jsonStr.isEmpty()) return;
+            try {
+                JSONObject obj = new JSONObject(jsonStr);
+                String b64 = obj.optString("biomePngBase64", "");
+                if (!b64.isEmpty()) {
+                    byte[] pngBytes = Base64.decode(b64, Base64.DEFAULT);
+                    File outFile = new File(getFilesDir(), "widget_biome.png");
+                    try (FileOutputStream fos = new FileOutputStream(outFile)) {
+                        fos.write(pngBytes);
+                    }
+                }
+                SharedPreferences prefs = getSharedPreferences("splash_widget", Context.MODE_PRIVATE);
+                prefs.edit()
+                    .putString("biomeName", obj.optString("biomeName", "Valle Alpino"))
+                    .putString("biomeShort", obj.optString("biomeShort", "Valle"))
+                    .putString("levelLabel", obj.optString("levelLabel", "Nv. 1"))
+                    .putString("streakLabel", obj.optString("streakLabel", "0 días"))
+                    .putString("goal2Title", obj.optString("goal2Title", "Respirar aire fresco"))
+                    .putString("goal15Title", obj.optString("goal15Title", "Caminar cuesta arriba"))
+                    .putString("weatherLabel", obj.optString("weatherLabel", "Radiante"))
+                    .putBoolean("isDark", obj.optBoolean("isDark", false))
+                    .putBoolean("isEn", obj.optBoolean("isEn", false))
+                    .apply();
+                refreshAllWidgets();
+            } catch (Throwable ignored) {
             }
         }
     }

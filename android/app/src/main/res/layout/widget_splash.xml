@@ -3,56 +3,127 @@
     android:id="@+id/widget_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/widget_splash_bg"
-    android:orientation="vertical"
-    android:padding="16dp">
+    android:background="@drawable/widget_card_light"
+    android:baselineAligned="false"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:padding="11dp">
 
     <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:gravity="center_vertical"
-        android:orientation="horizontal">
+        android:id="@+id/widget_diorama_box"
+        android:layout_width="112dp"
+        android:layout_height="match_parent"
+        android:background="@drawable/widget_diorama_light"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:padding="6dp">
 
-        <TextView
-            android:id="@+id/widget_brand"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
+        <ImageView
+            android:id="@+id/widget_biome_img"
+            android:layout_width="88dp"
+            android:layout_height="0dp"
             android:layout_weight="1"
-            android:text="Splash"
-            android:textColor="#7BC47F"
-            android:textSize="13sp"
-            android:textStyle="bold" />
+            android:contentDescription="Splash Bioma"
+            android:scaleType="fitCenter"
+            android:src="@mipmap/ic_launcher" />
 
         <TextView
-            android:id="@+id/widget_streak"
+            android:id="@+id/widget_biome_chip"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="0 días"
-            android:textColor="#F5C065"
-            android:textSize="12sp"
+            android:layout_marginTop="4dp"
+            android:background="@drawable/widget_pill_green"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:paddingLeft="10dp"
+            android:paddingTop="3dp"
+            android:paddingRight="10dp"
+            android:paddingBottom="3dp"
+            android:text="Valle"
+            android:textColor="#FFFFFF"
+            android:textSize="11sp"
             android:textStyle="bold" />
     </LinearLayout>
 
-    <TextView
-        android:id="@+id/widget_biome_title"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="4dp"
-        android:ellipsize="end"
-        android:maxLines="1"
-        android:text="Valle Alpino · Nv. 1"
-        android:textColor="#FFFFFF"
-        android:textSize="16sp"
-        android:textStyle="bold" />
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_marginStart="10dp"
+        android:layout_weight="1"
+        android:gravity="center_vertical"
+        android:orientation="vertical">
 
-    <TextView
-        android:id="@+id/widget_goal_text"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="6dp"
-        android:ellipsize="end"
-        android:maxLines="2"
-        android:text="Respirar aire fresco"
-        android:textColor="#D0DDD4"
-        android:textSize="13sp" />
+        <LinearLayout
+            android:id="@+id/widget_tile_rapido"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:background="@drawable/widget_goal_rapido_light"
+            android:gravity="center_vertical"
+            android:orientation="vertical"
+            android:paddingLeft="12dp"
+            android:paddingTop="6dp"
+            android:paddingRight="12dp"
+            android:paddingBottom="6dp">
+
+            <TextView
+                android:id="@+id/widget_goal_2m_title"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:text="Respirar aire fresco"
+                android:textColor="#FFF8EE"
+                android:textSize="13sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/widget_goal_2m_sub"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:text="2 min · Rápido"
+                android:textColor="#D8C4AA"
+                android:textSize="11sp" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/widget_tile_medio"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_marginTop="8dp"
+            android:layout_weight="1"
+            android:background="@drawable/widget_goal_medio_light"
+            android:gravity="center_vertical"
+            android:orientation="vertical"
+            android:paddingLeft="12dp"
+            android:paddingTop="6dp"
+            android:paddingRight="12dp"
+            android:paddingBottom="6dp">
+
+            <TextView
+                android:id="@+id/widget_goal_15m_title"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:text="Caminar cuesta arriba"
+                android:textColor="#EEF8FA"
+                android:textSize="13sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/widget_goal_15m_sub"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:text="15 min · Enfoque"
+                android:textColor="#AED0D7"
+                android:textSize="11sp" />
+        </LinearLayout>
+    </LinearLayout>
 </LinearLayout>
