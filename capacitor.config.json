@@ -1,0 +1,11 @@
+{
+  "appId": "com.splash.offline",
+  "appName": "Splash",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https"
+  },
+  "android": {
+    "backgroundColor": "#FAF8F3"
+  }
+}

@@ -1,0 +1,854 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#FAF8F3" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="Splash" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" type="image/svg+xml" href="icons/icon.svg" />
+  <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png" />
+  <title>Splash — Productividad Anti-Pantalla</title>
+
+  <!-- Tipografía suave Material 3 Expressive + Material Symbols Rounded -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;600;700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,400..600,0..1,0" rel="stylesheet" />
+
+  <!-- Librería oficial Google Material Web (@material/web) -->
+  <script type="module" src="https://esm.run/@material/web/all.js"></script>
+
+  <link rel="stylesheet" href="styles.css?v=26" />
+  <script>
+    (function () {
+      try {
+        var raw = localStorage.getItem('brote_state_v2');
+        var saved = raw ? JSON.parse(raw) : null;
+        var mode = (saved && saved.ui && saved.ui.themeMode) || 'system';
+        var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        var resolved = mode === 'dark' || (mode === 'system' && prefersDark) ? 'dark' : 'light';
+        document.documentElement.dataset.theme = resolved;
+        document.documentElement.style.colorScheme = resolved;
+        var meta = document.querySelector('meta[name="theme-color"]');
+        if (meta) meta.setAttribute('content', resolved === 'dark' ? '#141714' : '#FAF8F3');
+        var lang = localStorage.getItem('splash_lang_v1');
+        if (lang === 'en' || lang === 'es') document.documentElement.lang = lang;
+        var s = window.innerWidth >= 480 ? Math.min(1, (window.innerWidth - 28) / 436, (window.innerHeight - 28) / 939) : 1;
+        document.documentElement.style.setProperty('--pixel-scale', s.toFixed(4));
+      } catch (_) {}
+    })();
+  </script>
+</head>
+<body>
+  <div class="app-shell">
+    <!-- Cabecera minimalista M3 -->
+    <header class="top-header">
+      <div class="brand-pill">
+        <span class="brand-mark">
+          <span class="material-symbols-rounded">eco</span>
+        </span>
+        <span class="brand-name">Splash</span>
+      </div>
+
+      <div class="header-stats">
+        <div class="m3-tonal-pill pill-ember" id="header-streak" data-i18n-title="header_streak_title" title="Racha acumulativa (nunca se reinicia)">
+          <span class="material-symbols-rounded icon-sm">local_fire_department</span>
+          <span id="streak-days">0 días</span>
+        </div>
+        <div class="m3-tonal-pill pill-sage" id="header-level" role="button" tabindex="0" data-i18n-title="header_level_title" title="Biomas desbloqueados">
+          <span class="material-symbols-rounded icon-sm">landscape</span>
+          <span id="lumi-level-pill">1/10</span>
+        </div>
+        <button type="button" class="header-settings-btn" id="btn-simulator" data-i18n-aria="settings_aria" data-i18n-title="settings_aria" aria-label="Ajustes" title="Ajustes">
+          <span class="material-symbols-rounded">settings</span>
+          <span class="bell-badge hidden" id="bell-badge"></span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Contenedor principal -->
+    <main class="main-content" id="main-content">
+
+      <!-- PESTAÑA 1: HOY (INICIO SIN SCROLL) -->
+      <section class="tab-view active" id="tab-hoy" data-i18n-aria="tab_hoy_aria" aria-label="Hoy">
+        <!-- Escenario de Maqueta Topográfica 3D -->
+        <div class="mascot-stage" id="mascot-stage">
+          <canvas id="mascot-particles" class="mascot-particles"></canvas>
+          <button class="diorama-expand-btn" id="btn-open-biome-3d" data-i18n-aria="open_3d_aria" data-i18n-title="open_3d_title" aria-label="Explorar bioma en 3D" title="Entrar al bioma en 3D">
+            <span class="material-symbols-rounded icon-xs">3d_rotation</span>
+            <span>3D</span>
+          </button>
+          <div id="mascot-diorama-wrap" class="mascot-diorama-wrap" role="button" tabindex="0" data-i18n-aria="diorama_wrap_aria" aria-label="Entrar al bioma en 3D">
+            <canvas id="mascot-diorama" class="mascot-diorama-canvas" data-i18n-aria="diorama_canvas_aria" aria-label="Maqueta 3D de bioma"></canvas>
+          </div>
+          <div class="mascot-hud">
+            <div class="mascot-title-row">
+              <div class="biome-nav-group">
+                <button class="biome-arrow-btn" id="btn-biome-prev" data-i18n-aria="biome_prev_aria" aria-label="Bioma anterior">
+                  <span class="material-symbols-rounded icon-sm">chevron_left</span>
+                </button>
+                <span class="mascot-name" id="mascot-stage-name">Valle Alpino</span>
+                <button class="biome-arrow-btn" id="btn-biome-next" data-i18n-aria="biome_next_aria" aria-label="Siguiente bioma">
+                  <span class="material-symbols-rounded icon-sm">chevron_right</span>
+                </button>
+              </div>
+              <span class="mascot-mood-tag" id="mascot-mood-tag">Nv. 1/8 · En calma</span>
+            </div>
+            <div class="mascot-progress-bar">
+              <div class="mascot-progress-fill" id="mascot-xp-fill" style="width: 20%"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tarjeta Activa de Aviso (Visible solo cuando hay ping activo) -->
+        <div class="bereal-card hidden" id="bereal-active-card">
+          <div class="bereal-header">
+            <div class="bereal-badge">
+              <span class="material-symbols-rounded icon-xs" id="bereal-badge-icon">bolt</span>
+              <span id="bereal-badge-text">Aviso Rápido · 20m</span>
+            </div>
+            <div class="bereal-timer" id="bereal-countdown">20:00</div>
+          </div>
+          <p class="bereal-prompt" id="bereal-prompt-text">
+            Respirar de forma relajada durante 1 minuto
+          </p>
+          <div class="bereal-actions">
+            <md-filled-tonal-button id="btn-bereal-photo" class="m3-btn-flex">
+              <span class="material-symbols-rounded" slot="icon">photo_camera</span>
+              <span data-i18n="bereal_photo_btn">Foto</span>
+            </md-filled-tonal-button>
+            <md-filled-button id="btn-bereal-done" class="m3-btn-flex">
+              <span class="material-symbols-rounded" slot="icon">check</span>
+              <span data-i18n="bereal_done_btn">Hecho</span>
+            </md-filled-button>
+          </div>
+        </div>
+
+        <!-- Selector de tiempo disponible (1 pantalla, cero scroll) -->
+        <div class="time-switcher" role="tablist" data-i18n-aria="time_switcher_aria" aria-label="Tiempo disponible">
+          <button class="time-seg active" data-block="RAPIDO" role="tab" aria-selected="true">
+            <span class="material-symbols-rounded icon-sm">bolt</span>
+            <span>2 min</span>
+          </button>
+          <button class="time-seg" data-block="MEDIO" role="tab" aria-selected="false">
+            <span class="material-symbols-rounded icon-sm">schedule</span>
+            <span>15 min</span>
+          </button>
+          <button class="time-seg" data-block="LARGO" role="tab" aria-selected="false">
+            <span class="material-symbols-rounded icon-sm">local_fire_department</span>
+            <span data-i18n="time_weekly">Semanal</span>
+          </button>
+        </div>
+
+        <!-- Bloque Activo Único -->
+        <div class="active-block-wrap">
+          <div class="active-block-bar">
+            <span class="active-block-caption" id="active-block-caption">2 min · Ilumina tu bioma</span>
+            <md-icon-button id="btn-block-refresh" data-i18n-aria="refresh_aria" data-i18n-title="refresh_aria" aria-label="Nuevas sugerencias" title="Nuevas sugerencias">
+              <span class="material-symbols-rounded">refresh</span>
+            </md-icon-button>
+            <button class="reroll-btn hidden" id="btn-weekly-reroll" data-i18n-title="reroll_title" title="Cambiar retos de la semana">
+              <span class="material-symbols-rounded icon-xs">casino</span>
+              <span>Reroll (<span id="reroll-count">1</span>)</span>
+            </button>
+          </div>
+          <div class="cards-list" id="active-home-list"></div>
+          <div class="completed-drawer-wrap hidden" id="completed-drawer-wrap">
+            <button type="button" class="completed-toggle-btn" id="btn-toggle-completed">
+              <span class="material-symbols-rounded icon-xs">check_circle</span>
+              <span id="completed-toggle-label">1 completado</span>
+              <span class="material-symbols-rounded icon-xs completed-chevron">expand_more</span>
+            </button>
+            <div class="cards-list completed-sublist hidden" id="completed-home-list"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- PESTAÑA 2: MURO REAL (CALENDARIO) -->
+      <section class="tab-view" id="tab-muro" data-i18n-aria="tab_muro_aria" aria-label="Muro Real">
+        <div class="section-intro">
+          <h1 data-i18n="muro_title">Muro Real</h1>
+          <p id="muro-subtitle">Tu calendario privado de vida fuera de la pantalla. Sin comparaciones, solo tus momentos.</p>
+        </div>
+
+        <div class="muro-subtabs" id="muro-subtabs" role="tablist" data-i18n-aria="muro_subtabs_aria" aria-label="Vistas de Muro">
+          <button type="button" class="muro-subtab-btn active" data-muro-view="calendario" role="tab" aria-selected="true" data-i18n="muro_view_cal">Mi Muro</button>
+          <button type="button" class="muro-subtab-btn" data-muro-view="circulo" role="tab" aria-selected="false">
+            <span data-i18n="muro_view_circle">Círculo</span>
+            <span class="muro-subtab-count" id="circle-count-badge">4</span>
+          </button>
+          <button type="button" class="muro-subtab-btn" data-muro-view="archipielago" role="tab" aria-selected="false" data-i18n="muro_view_map">Mapa</button>
+        </div>
+
+        <div id="muro-panel-calendario">
+          <div class="m3-surface-card calendar-card">
+            <div class="calendar-nav">
+              <md-icon-button id="cal-prev" data-i18n-aria="cal_prev_aria" aria-label="Mes anterior">
+                <span class="material-symbols-rounded">chevron_left</span>
+              </md-icon-button>
+              <h3 id="cal-month-label">Noviembre 2026</h3>
+              <md-icon-button id="cal-next" data-i18n-aria="cal_next_aria" aria-label="Mes siguiente">
+                <span class="material-symbols-rounded">chevron_right</span>
+              </md-icon-button>
+            </div>
+            <div class="calendar-weekdays">
+              <span data-i18n="wd_1">L</span><span data-i18n="wd_2">M</span><span data-i18n="wd_3">X</span><span data-i18n="wd_4">J</span><span data-i18n="wd_5">V</span><span data-i18n="wd_6">S</span><span data-i18n="wd_7">D</span>
+            </div>
+            <div class="calendar-grid" id="calendar-grid"></div>
+          </div>
+
+          <div class="m3-surface-card balance-card">
+            <h3 data-i18n="balance_title">Equilibrio este mes</h3>
+            <div class="balance-bars" id="balance-bars"></div>
+          </div>
+        </div>
+
+        <div id="muro-panel-circulo" class="hidden"></div>
+        <div id="muro-panel-archipielago" class="hidden"></div>
+      </section>
+
+      <!-- PESTAÑA 3: CATÁLOGO (EXPLORAR) -->
+      <section class="tab-view" id="tab-catalogo" data-i18n-aria="tab_catalogo_aria" aria-label="Catálogo">
+        <div class="catalog-top">
+          <div class="catalog-header-row">
+            <h1 data-i18n="catalog_title">Catálogo</h1>
+            <md-filled-tonal-button id="btn-open-create">
+              <span class="material-symbols-rounded" slot="icon">add</span>
+              <span data-i18n="btn_create_custom">Crear propio</span>
+            </md-filled-tonal-button>
+          </div>
+          <div class="search-wrap">
+            <span class="material-symbols-rounded search-icon">search</span>
+            <input type="search" id="catalog-search" data-i18n-ph="catalog_search_ph" placeholder="Buscar entre los 67+ objetivos..." />
+          </div>
+          <div class="filter-pills" id="catalog-filters">
+            <button class="pill active" data-filter="ALL" data-i18n="filter_all">Todos</button>
+            <button class="pill" data-filter="RAPIDO" data-i18n="filter_quick">Rápidos</button>
+            <button class="pill" data-filter="MEDIO" data-i18n="filter_medium">Medios</button>
+            <button class="pill" data-filter="LARGO" data-i18n="filter_long">Largos</button>
+            <button class="pill" data-filter="SECRETO" data-i18n="filter_biome">Del bioma</button>
+          </div>
+        </div>
+        <div class="catalog-list" id="catalog-list"></div>
+      </section>
+
+      <!-- PESTAÑA 4: BIOMAS APILADOS -->
+      <section class="tab-view" id="tab-biomas" data-i18n-aria="tab_biomas_aria" aria-label="Biomas">
+        <div class="biomes-stack-header">
+          <div>
+            <h1 data-i18n="biomes_title">Tus Biomas</h1>
+            <p data-i18n="biomes_sub">10 mundos apilados en orden. Toca uno para equiparlo o ábrelo en 3D.</p>
+          </div>
+          <span class="m3-tonal-pill pill-sage" id="biomes-level-summary">Nv. 1 · 0/80</span>
+        </div>
+        <div class="biomes-view-switcher" id="biomes-view-switcher" role="tablist" data-i18n-aria="biomes_view_aria" aria-label="Vista de biomas">
+          <button type="button" class="biomes-view-btn active" data-view="grid" role="tab" aria-selected="true">
+            <span class="material-symbols-rounded icon-xs">grid_view</span>
+            <span>Mini</span>
+          </button>
+          <button type="button" class="biomes-view-btn" data-view="list" role="tab" aria-selected="false">
+            <span class="material-symbols-rounded icon-xs">view_agenda</span>
+            <span data-i18n="biomes_view_list">Apilado</span>
+          </button>
+          <button type="button" class="biomes-view-btn" data-view="large" role="tab" aria-selected="false">
+            <span class="material-symbols-rounded icon-xs">crop_landscape</span>
+            <span data-i18n="biomes_view_large">Grande</span>
+          </button>
+        </div>
+        <div class="biomes-stack-list view-grid" id="biomes-stack-list"></div>
+      </section>
+
+    </main>
+
+    <!-- Difuminado sutil inferior + Barra Flotante estilo Google Photos -->
+    <div class="nav-blur-scrim" aria-hidden="true"></div>
+    <div class="floating-nav-dock">
+      <nav class="floating-toolbar" data-i18n-aria="nav_aria" aria-label="Navegación principal">
+        <button class="ft-item ft-nav-btn active" data-tab="tab-hoy">
+          <span class="ft-pill">
+            <span class="material-symbols-rounded">home</span>
+          </span>
+          <span class="ft-label" data-i18n="nav_hoy">Hoy</span>
+        </button>
+        <button class="ft-item ft-nav-btn" data-tab="tab-muro">
+          <span class="ft-pill">
+            <span class="material-symbols-rounded">calendar_month</span>
+          </span>
+          <span class="ft-label" data-i18n="nav_muro">Muro</span>
+        </button>
+        <button class="ft-item ft-nav-btn" data-tab="tab-catalogo">
+          <span class="ft-pill">
+            <span class="material-symbols-rounded">explore</span>
+          </span>
+          <span class="ft-label" data-i18n="nav_catalogo">Catálogo</span>
+        </button>
+      </nav>
+      <button class="floating-biomes-fab ft-nav-btn" data-tab="tab-biomas" data-i18n-aria="nav_biomas_aria" data-i18n-title="nav_biomas_title" aria-label="Ver todos los biomas" title="Tus biomas apilados">
+        <span class="material-symbols-rounded">landscape</span>
+      </button>
+    </div>
+
+    <!-- Toast de feedback rápido (< 10s UX + opción foto) -->
+    <div class="toast hidden" id="cozy-toast">
+      <div class="toast-content">
+        <span class="material-symbols-rounded toast-icon" id="toast-icon">check_circle</span>
+        <span class="toast-text" id="toast-text" data-i18n="toast_default">Hecho. Ya puedes bloquear el móvil.</span>
+      </div>
+      <button class="toast-action hidden" id="toast-photo-btn">
+        <span class="material-symbols-rounded icon-xs">photo_camera</span>
+        <span data-i18n="toast_photo">Foto</span>
+      </button>
+    </div>
+
+  <!-- MODAL 1: TEMPORIZADOR (MEDIOS & SOCIAL) -->
+  <div class="modal-overlay hidden" id="modal-timer" role="dialog" aria-modal="true">
+    <div class="modal-card">
+      <md-icon-button class="modal-close" data-close="modal-timer" data-i18n-aria="close_aria" aria-label="Cerrar">
+        <span class="material-symbols-rounded">close</span>
+      </md-icon-button>
+      <div class="modal-badge tone-teal" id="timer-cat-badge">Objetivo Medio</div>
+      <h2 class="modal-title" id="timer-title">Título del objetivo</h2>
+
+      <!-- Vista Social (si tipoVerificacion === SOCIAL) -->
+      <div class="social-deeplink-box hidden" id="social-deeplink-box">
+        <p class="social-hint" data-i18n="social_hint">Abre tu app de mensajería para escribir con calma. Al volver aquí, validaremos el objetivo.</p>
+        <div class="social-btns">
+          <a href="https://wa.me/" target="_blank" rel="noopener" class="social-pill-link social-link-btn" data-app="whatsapp">
+            <span class="material-symbols-rounded icon-sm">chat</span>
+            <span>WhatsApp</span>
+          </a>
+          <a href="https://t.me/" target="_blank" rel="noopener" class="social-pill-link social-link-btn" data-app="telegram">
+            <span class="material-symbols-rounded icon-sm">send</span>
+            <span>Telegram</span>
+          </a>
+        </div>
+      </div>
+
+      <!-- Temporizador circular -->
+      <div class="timer-ring-wrap" id="timer-ring-wrap">
+        <svg class="timer-ring" viewBox="0 0 180 180">
+          <circle class="timer-ring-bg" cx="90" cy="90" r="78" />
+          <circle class="timer-ring-progress" id="timer-ring-progress" cx="90" cy="90" r="78" />
+        </svg>
+        <div class="timer-center">
+          <div class="timer-display" id="timer-display">15:00</div>
+          <div class="timer-adjust">
+            <button class="chip-btn" id="timer-minus">-5m</button>
+            <button class="chip-btn" id="timer-plus">+5m</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sonido ambiental por bioma -->
+      <div class="ambient-controls" id="ambient-controls">
+        <span class="ambient-label" data-i18n="ambient_label">Sonido suave</span>
+      </div>
+
+      <div class="modal-footer-btns">
+        <md-outlined-button id="btn-timer-toggle" class="m3-btn-flex">Iniciar</md-outlined-button>
+        <md-filled-button id="btn-timer-complete" class="m3-btn-flex" data-i18n="btn_timer_complete">Completar</md-filled-button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 2: PUENTE ANALÓGICO (LARGOS - OLED DARK) -->
+  <div class="modal-overlay modal-oled hidden" id="modal-analog" role="dialog" aria-modal="true">
+    <div class="analog-screen">
+      <button class="modal-close-dark" data-close="modal-analog" data-i18n-aria="exit_aria" aria-label="Salir">
+        <span class="material-symbols-rounded">close</span>
+      </button>
+      <div class="analog-pulse-ring">
+        <span class="material-symbols-rounded analog-icon" id="analog-icon">auto_stories</span>
+      </div>
+      <h2 class="analog-heading" data-i18n="analog_heading">Deja el móvil boca abajo</h2>
+      <p class="analog-goal-title" id="analog-goal-title">Leer un libro físico durante 30–45 minutos</p>
+      <div class="analog-timer" id="analog-timer">00:00</div>
+      <p class="analog-status" id="analog-status">
+        Modo Puente Analógico activo. Disfruta el mundo real; si sales a redes sociales, pausaremos el contador suavemente.
+      </p>
+      <div class="analog-sound-wrap">
+        <button type="button" class="analog-sound-btn" id="btn-analog-sound">
+          <span class="material-symbols-rounded icon-xs" id="analog-sound-icon">volume_up</span>
+          <span id="analog-sound-label" data-i18n="analog_sound_label">Sonido del bioma</span>
+        </button>
+      </div>
+      <div class="analog-actions">
+        <button class="btn-dark-sage" id="btn-analog-complete" data-i18n="btn_analog_complete">Ya terminé este reto</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 3: CÁMARA RÁPIDA (MURO REAL) -->
+  <div class="modal-overlay hidden" id="modal-camera" role="dialog" aria-modal="true">
+    <div class="modal-card">
+      <md-icon-button class="modal-close" data-close="modal-camera" data-i18n-aria="close_aria" aria-label="Cerrar">
+        <span class="material-symbols-rounded">close</span>
+      </md-icon-button>
+      <div class="modal-badge tone-honey" data-i18n="cam_badge">Muro Real</div>
+      <h2 class="modal-title" data-i18n="cam_title">Guarda un recuerdo rápido</h2>
+      <p class="modal-sub" data-i18n="cam_sub">Solo se guarda en tu dispositivo. Cero redes, cero filtros.</p>
+
+      <div class="camera-preview-box">
+        <video id="camera-video" autoplay playsinline muted class="hidden"></video>
+        <canvas id="camera-canvas" class="hidden"></canvas>
+        <img id="camera-captured-img" class="hidden" data-i18n-alt="cam_img_alt" alt="Foto capturada" />
+        <div class="camera-fallback" id="camera-fallback">
+          <span class="material-symbols-rounded fallback-cam-icon">photo_camera</span>
+          <p data-i18n="cam_fallback_p">Puedes usar la cámara o elegir una foto rápida de tu galería</p>
+          <label class="file-pill-btn">
+            <span data-i18n="cam_pick_btn">Elegir o sacar foto</span>
+            <input type="file" id="camera-file-input" accept="image/*" capture="environment" class="hidden" />
+          </label>
+        </div>
+      </div>
+
+      <div class="modal-footer-btns">
+        <md-filled-tonal-button class="hidden m3-btn-flex" id="btn-take-snap" data-i18n="cam_capture_btn">Capturar</md-filled-tonal-button>
+        <md-filled-button class="hidden m3-btn-flex" id="btn-save-snap" data-i18n="cam_save_btn">Guardar en Muro</md-filled-button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 4: CREAR OBJETIVO PROPIO -->
+  <div class="modal-overlay hidden" id="modal-create" role="dialog" aria-modal="true">
+    <div class="modal-card">
+      <md-icon-button class="modal-close" data-close="modal-create" data-i18n-aria="close_aria" aria-label="Cerrar">
+        <span class="material-symbols-rounded">close</span>
+      </md-icon-button>
+      <h2 class="modal-title" data-i18n="create_title">Crear objetivo propio</h2>
+      <form id="create-goal-form" class="cozy-form">
+        <label>
+          <span data-i18n="create_q">¿Qué quieres hacer fuera de la pantalla?</span>
+          <input type="text" id="new-goal-title" required maxlength="90" data-i18n-ph="create_ph" placeholder="Ej. Regar las suculentas del balcón" />
+        </label>
+        <div class="form-row">
+          <label>
+            <span data-i18n="create_dur">Tiempo</span>
+            <select id="new-goal-cat">
+              <option value="RAPIDO" data-i18n="opt_quick">Rápido (&lt;2 min)</option>
+              <option value="MEDIO" data-i18n="opt_medium">Medio (10-20 min)</option>
+              <option value="LARGO" data-i18n="opt_long">Largo (30-60+ min)</option>
+            </select>
+          </label>
+          <label>
+            <span data-i18n="create_area">Área</span>
+            <input type="text" id="new-goal-subcat" value="Personal" maxlength="30" />
+          </label>
+        </div>
+        <md-filled-button type="submit" class="m3-btn-full" data-i18n="create_save">Guardar en Catálogo</md-filled-button>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL 5: AJUSTES DE NOTIFICACIONES Y MODO BETA -->
+  <div class="modal-overlay hidden" id="modal-simulator" role="dialog" aria-modal="true">
+    <div class="modal-card modal-card-wide">
+      <md-icon-button class="modal-close" data-close="modal-simulator" data-i18n-aria="close_aria" aria-label="Cerrar">
+        <span class="material-symbols-rounded">close</span>
+      </md-icon-button>
+      <div class="modal-badge tone-honey" data-i18n="settings_badge">Ajustes</div>
+
+      <div class="settings-user-card">
+        <div class="settings-user-head">
+          <div class="settings-user-avatar" id="settings-user-avatar">
+            <span class="material-symbols-rounded">person</span>
+          </div>
+          <div class="settings-user-meta">
+            <strong id="settings-user-greeting">Tu perfil</strong>
+            <small data-i18n="settings_profile_sub">Personaliza tu nombre en Splash</small>
+          </div>
+        </div>
+        <div class="settings-user-form">
+          <input type="text" id="user-name-input" maxlength="28" data-i18n-ph="settings_name_ph" data-i18n-aria="settings_name_aria" placeholder="Escribe tu nombre..." aria-label="Nombre de usuario" />
+          <button type="button" class="user-save-btn" id="btn-save-user-name" data-i18n="settings_save">Guardar</button>
+        </div>
+      </div>
+
+      <h3 class="settings-section-title" data-i18n="settings_lang_title">Idioma</h3>
+      <div class="theme-mode-tabs is-2col" id="lang-mode-tabs" role="radiogroup" data-i18n-aria="settings_lang_aria" aria-label="Idioma de la aplicación">
+        <button type="button" class="theme-mode-btn lang-mode-btn active" id="btn-lang-es" data-lang-mode="es" role="radio" aria-checked="true">
+          <span class="material-symbols-rounded icon-xs">translate</span>
+          <span>Español</span>
+        </button>
+        <button type="button" class="theme-mode-btn lang-mode-btn" id="btn-lang-en" data-lang-mode="en" role="radio" aria-checked="false">
+          <span class="material-symbols-rounded icon-xs">language</span>
+          <span>English</span>
+        </button>
+      </div>
+
+      <h3 class="settings-section-title" data-i18n="settings_appearance">Apariencia</h3>
+      <div class="theme-mode-tabs" id="theme-mode-tabs" role="radiogroup" data-i18n-aria="settings_theme_aria" aria-label="Tema de la aplicación">
+        <button type="button" class="theme-mode-btn active" data-theme-mode="system" role="radio" aria-checked="true">
+          <span class="material-symbols-rounded icon-xs">brightness_auto</span>
+          <span data-i18n="theme_sys">Sistema</span>
+        </button>
+        <button type="button" class="theme-mode-btn" data-theme-mode="light" role="radio" aria-checked="false">
+          <span class="material-symbols-rounded icon-xs">light_mode</span>
+          <span data-i18n="theme_light">Claro</span>
+        </button>
+        <button type="button" class="theme-mode-btn" data-theme-mode="dark" role="radio" aria-checked="false">
+          <span class="material-symbols-rounded icon-xs">dark_mode</span>
+          <span data-i18n="theme_dark">Oscuro</span>
+        </button>
+      </div>
+
+      <h3 class="settings-section-title" data-i18n="settings_notif">Notificaciones rápidas</h3>
+      <p class="modal-sub" data-i18n="settings_notif_sub">Toca un día y marca las horas en las que quieres recibir avisos rápidos (20 min):</p>
+
+      <div class="sched-section">
+        <div class="sched-live-badge is-on" id="sched-live-status">
+          <span class="material-symbols-rounded icon-xs">notifications_active</span>
+          <span data-i18n="sched_active_label">Activas en este horario</span>
+        </div>
+
+        <div class="sched-mode-tabs" role="tablist" data-i18n-aria="sched_scope_aria" aria-label="Ámbito de horario">
+          <button type="button" class="sched-mode-btn active" data-sched-mode="default" role="tab" aria-selected="true" data-i18n="sched_default">Predeterminada</button>
+          <button type="button" class="sched-mode-btn" data-sched-mode="week" role="tab" aria-selected="false" data-i18n="sched_week">Otra semana</button>
+        </div>
+
+        <div class="sched-week-bar hidden" id="sched-week-bar">
+          <div class="sched-week-nav">
+            <button type="button" class="sched-week-arrow" id="sched-week-prev" data-i18n-aria="sched_prev_aria" aria-label="Semana anterior">
+              <span class="material-symbols-rounded icon-sm">chevron_left</span>
+            </button>
+            <span class="sched-week-label" id="sched-week-label">Esta semana</span>
+            <button type="button" class="sched-week-arrow" id="sched-week-next" data-i18n-aria="sched_next_aria" aria-label="Semana siguiente">
+              <span class="material-symbols-rounded icon-sm">chevron_right</span>
+            </button>
+          </div>
+          <div class="sched-week-meta">
+            <span class="sched-week-pill" id="sched-week-tag">Predeterminada</span>
+            <button type="button" class="sched-reset-btn hidden" id="sched-week-reset" data-i18n="sched_reset">Restaurar</button>
+          </div>
+        </div>
+
+        <div class="sched-visual-wrap" id="notif-schedule-visual" data-i18n-aria="sched_visual_aria" aria-label="Selector visual de horas"></div>
+
+        <div class="sched-presets" id="sched-presets">
+          <button type="button" class="sched-preset-chip" data-preset="default" data-i18n="preset_default">L–V sin lun. tarde</button>
+          <button type="button" class="sched-preset-chip" data-preset="weekdays" data-i18n="preset_weekdays">L–V 9–21h</button>
+          <button type="button" class="sched-preset-chip" data-preset="all" data-i18n="preset_all">Todos 9–21h</button>
+          <button type="button" class="sched-preset-chip" data-preset="mute" data-i18n="preset_mute">Silenciar</button>
+        </div>
+      </div>
+
+      <div class="sim-buttons" style="margin-top:12px;">
+        <button class="sim-btn" id="btn-open-widgets">
+          <span class="material-symbols-rounded sim-icon tone-sage">widgets</span>
+          <div>
+            <strong data-i18n="widgets_title">Widgets</strong>
+            <small data-i18n="widgets_sub">Vista interactiva de inicio y pantalla de bloqueo</small>
+          </div>
+        </button>
+
+        <button class="sim-btn" id="btn-send-feedback">
+          <span class="material-symbols-rounded sim-icon tone-honey">rate_review</span>
+          <div>
+            <strong data-i18n="feedback_title">Enviar feedback</strong>
+            <small data-i18n="feedback_sub">Beta · Cuéntanos qué funciones añadirías o qué mejorarías</small>
+          </div>
+        </button>
+      </div>
+
+      <div class="settings-beta-card">
+        <div class="settings-beta-meta">
+          <strong data-i18n="beta_title">Modo Beta</strong>
+          <small id="beta-mode-desc">Activo · Prueba niveles del bioma y simulador</small>
+        </div>
+        <button type="button" class="sched-switch is-on" id="btn-toggle-beta" role="switch" aria-checked="true" data-i18n-aria="beta_toggle_aria" aria-label="Activar o desactivar Modo Beta">
+          <span class="sched-switch-thumb"></span>
+        </button>
+      </div>
+
+      <div class="beta-only-block" id="beta-sim-section">
+        <div class="sim-divider"><span data-i18n="beta_divider">Pruebas rápidas Beta</span></div>
+
+        <div class="sim-buttons">
+          <button class="sim-btn" id="sim-bereal">
+            <span class="material-symbols-rounded sim-icon tone-honey">bolt</span>
+            <div>
+              <strong data-i18n="sim_bereal_t">Aviso Rápido (20 min)</strong>
+              <small data-i18n="sim_bereal_s">Activa un objetivo de 2 min con ventana de 20 min</small>
+            </div>
+          </button>
+
+          <button class="sim-btn" id="sim-medio-ping">
+            <span class="material-symbols-rounded sim-icon tone-teal">schedule</span>
+            <div>
+              <strong data-i18n="sim_medio_t">Aviso Medio (4 horas)</strong>
+              <small data-i18n="sim_medio_s">Activa un objetivo de 15 min con ventana de 4 h</small>
+            </div>
+          </button>
+
+          <button class="sim-btn" id="sim-max-biome">
+            <span class="material-symbols-rounded sim-icon tone-sage">workspace_premium</span>
+            <div>
+              <strong data-i18n="sim_max_t">Completar bioma actual (Nv. 8 · Beta)</strong>
+              <small data-i18n="sim_max_s">Completa tu bioma activo (80/80) y desbloquea el siguiente</small>
+            </div>
+          </button>
+
+          <button class="sim-btn" id="sim-antiscroll">
+            <span class="material-symbols-rounded sim-icon tone-teal">shield</span>
+            <div>
+              <strong data-i18n="sim_anti_t">Notificación Rescate Anti-Scroll</strong>
+              <small data-i18n="sim_anti_s">Vista previa de pantalla bloqueada con 3 botones</small>
+            </div>
+          </button>
+
+          <button class="sim-btn" id="sim-thursday">
+            <span class="material-symbols-rounded sim-icon tone-sage">event</span>
+            <div>
+              <strong data-i18n="sim_thu_t">Recordatorio Amable (Jueves)</strong>
+              <small data-i18n="sim_thu_s">Aviso suave para planificar tus retos largos del finde</small>
+            </div>
+          </button>
+
+          <button class="sim-btn" id="sim-reset-progress">
+            <span class="material-symbols-rounded sim-icon tone-ember">restart_alt</span>
+            <div>
+              <strong data-i18n="sim_reset_t">Reiniciar progreso (desde 0)</strong>
+              <small data-i18n="sim_reset_s">Borra racha, biomas, fotos y objetivos completados</small>
+            </div>
+          </button>
+        </div>
+
+        <!-- Vista previa pantalla bloqueada Anti-Scroll -->
+        <div class="lockscreen-preview hidden" id="lockscreen-preview">
+          <div class="lock-time">19:42</div>
+          <div class="lock-notif">
+            <div class="lock-notif-head">
+              <span data-i18n="lock_head">Splash · Rescate Anti-Scroll</span>
+              <span data-i18n="lock_now">ahora</span>
+            </div>
+            <p data-i18n="lock_p">¿Llevas un rato haciendo scroll? Sal de la pantalla en menos de 10 segundos:</p>
+            <div class="lock-actions">
+              <button class="lock-btn" data-rescue="RAPIDO">2 min</button>
+              <button class="lock-btn" data-rescue="MEDIO">15 min</button>
+              <button class="lock-btn" data-rescue="LARGO" data-i18n="lock_weekly">Reto Semanal</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 6: DETALLE DE DÍA (MURO REAL) -->
+  <div class="modal-overlay hidden" id="modal-day" role="dialog" aria-modal="true">
+    <div class="modal-card">
+      <md-icon-button class="modal-close" data-close="modal-day" data-i18n-aria="close_aria" aria-label="Cerrar">
+        <span class="material-symbols-rounded">close</span>
+      </md-icon-button>
+      <h2 class="modal-title" id="day-modal-date">17 de noviembre</h2>
+      <div id="day-modal-photo-wrap" class="day-photo-wrap hidden">
+        <img id="day-modal-photo" data-i18n-alt="day_img_alt" alt="Foto del día en Splash" />
+      </div>
+      <div id="day-modal-logs" class="day-logs-list"></div>
+      <button type="button" class="day-add-photo-btn hidden" id="btn-day-add-photo">
+        <span class="material-symbols-rounded icon-xs">add_a_photo</span>
+        <span data-i18n="day_add_photo">Añadir foto de este recuerdo</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- MODAL 7: VISOR 3D INTERACTIVO DE BIOMAS -->
+  <div class="modal-overlay modal-biome-3d hidden" id="modal-biome-3d" role="dialog" aria-modal="true" data-i18n-aria="viewer_aria" aria-label="Visor 3D de bioma">
+    <div class="viewer-topbar">
+      <div class="viewer-title-block">
+        <h2 id="viewer-biome-title">Valle Alpino</h2>
+        <p id="viewer-stage-label">Nv. 1 · Terreno base</p>
+      </div>
+      <md-icon-button id="btn-close-biome-3d" data-i18n-aria="viewer_close_aria" aria-label="Cerrar visor 3D">
+        <span class="material-symbols-rounded">close</span>
+      </md-icon-button>
+    </div>
+
+    <canvas id="viewer-3d-canvas" class="viewer-3d-canvas"></canvas>
+
+    <div class="viewer-hint" id="viewer-hint" data-i18n="viewer_hint">
+      Arrastra para rotar · Pellizca o rueda para ampliar
+    </div>
+
+    <div class="viewer-camera-controls">
+      <button class="viewer-ctrl-btn" id="viewer-zoom-in" data-i18n-aria="viewer_zin_aria" data-i18n-title="viewer_zin_aria" aria-label="Ampliar" title="Ampliar">
+        <span class="material-symbols-rounded">add</span>
+      </button>
+      <button class="viewer-ctrl-btn" id="viewer-zoom-out" data-i18n-aria="viewer_zout_aria" data-i18n-title="viewer_zout_aria" aria-label="Alejar" title="Alejar">
+        <span class="material-symbols-rounded">remove</span>
+      </button>
+      <button class="viewer-ctrl-btn" id="viewer-reset" data-i18n-aria="viewer_reset_aria" data-i18n-title="viewer_reset_aria" aria-label="Centrar cámara" title="Centrar cámara">
+        <span class="material-symbols-rounded">center_focus_strong</span>
+      </button>
+      <button class="viewer-ctrl-btn" id="viewer-sun-toggle" data-i18n-aria="viewer_sun_aria" data-i18n-title="viewer_sun_title" aria-label="Cambiar hora del día" title="Luz (Auto / Día / Atardecer / Noche)">
+        <span class="material-symbols-rounded" id="viewer-sun-icon">brightness_auto</span>
+      </button>
+      <button class="viewer-ctrl-btn" id="viewer-sound-toggle" data-i18n-aria="viewer_sound_aria" data-i18n-title="viewer_sound_title" aria-label="Sonido del bioma" title="Sonido ambiental del bioma">
+        <span class="material-symbols-rounded" id="viewer-sound-icon">volume_off</span>
+      </button>
+    </div>
+
+    <button type="button" class="viewer-enter-btn hidden" id="btn-enter-biome">
+      <span class="material-symbols-rounded icon-sm">directions_walk</span>
+      <span id="btn-enter-biome-label">Entrar en Costa</span>
+    </button>
+
+    <div class="viewer-dock">
+      <div class="viewer-pill-row viewer-biome-scroll" id="viewer-biome-pills" data-i18n-aria="viewer_biomes_aria" aria-label="Biomas">
+        <button class="viewer-pill active" data-biome="valle">Valle</button>
+        <button class="viewer-pill" data-biome="jungla">Jungla</button>
+        <button class="viewer-pill" data-biome="costa">Costa</button>
+        <button class="viewer-pill" data-biome="kioto">Kioto</button>
+        <button class="viewer-pill" data-biome="desierto">Oasis</button>
+        <button class="viewer-pill" data-biome="arrozales">Bali</button>
+        <button class="viewer-pill" data-biome="otono">Otoño</button>
+        <button class="viewer-pill" data-biome="fiordo">Fiordo</button>
+        <button class="viewer-pill" data-biome="atolon">Atolón</button>
+        <button class="viewer-pill" data-biome="toscana">Toscana</button>
+      </div>
+      <div class="viewer-stage-row beta-only-block">
+        <span class="viewer-stage-caption" data-i18n="viewer_stage_caption">Mejora</span>
+        <div class="viewer-pill-row" id="viewer-stage-pills" data-i18n-aria="viewer_stage_aria" aria-label="Progresión del bioma">
+          <button class="viewer-stage-pill" data-stage="1">1</button>
+          <button class="viewer-stage-pill" data-stage="2">2</button>
+          <button class="viewer-stage-pill" data-stage="3">3</button>
+          <button class="viewer-stage-pill" data-stage="4">4</button>
+          <button class="viewer-stage-pill" data-stage="5">5</button>
+          <button class="viewer-stage-pill" data-stage="6">6</button>
+          <button class="viewer-stage-pill" data-stage="7">7</button>
+          <button class="viewer-stage-pill" data-stage="8">8</button>
+          <button class="viewer-stage-pill active" data-stage="real">Real</button>
+        </div>
+      </div>
+      <div class="viewer-sim-row beta-only-block" id="viewer-sim-pills" data-i18n-aria="viewer_sim_aria" aria-label="Simular cumplimiento de misiones">
+        <button class="viewer-sim-btn sim-rapido" data-add="1" data-i18n="sim_add_1">+1 Rápido</button>
+        <button class="viewer-sim-btn sim-medio" data-add="4" data-i18n="sim_add_4">+4 Medio</button>
+        <button class="viewer-sim-btn sim-largo" data-add="8" data-i18n="sim_add_8">+8 Largo</button>
+      </div>
+      <div class="viewer-beta-note beta-only-block" data-i18n="viewer_beta_note">Vista libre Beta · sin cumplir objetivos</div>
+    </div>
+  </div>
+
+  <!-- MODAL 8: WIDGETS -->
+  <div class="modal-overlay hidden" id="modal-widgets" role="dialog" aria-modal="true" data-i18n-aria="w_modal_aria" aria-label="Widgets">
+    <div class="modal-card modal-card-wide">
+      <md-icon-button class="modal-close" data-close="modal-widgets" data-i18n-aria="close_aria" aria-label="Cerrar">
+        <span class="material-symbols-rounded">close</span>
+      </md-icon-button>
+      <div class="modal-badge tone-sage" data-i18n="w_modal_badge">Splash</div>
+      <h2 class="modal-title" data-i18n="w_modal_title">Widgets</h2>
+      <p class="modal-sub" data-i18n="w_modal_sub">Vista interactiva con luz en tiempo real. Completa un reto directo desde el widget.</p>
+
+      <div class="widget-tabs" id="widget-type-tabs" role="tablist" data-i18n-aria="w_type_aria" aria-label="Formato de widget">
+        <button type="button" class="widget-tab-btn active" data-wtype="4x2" data-i18n="w_type_4x2">4×2 Retos</button>
+        <button type="button" class="widget-tab-btn" data-wtype="2x2" data-i18n="w_type_2x2">2×2 Bioma</button>
+        <button type="button" class="widget-tab-btn" data-wtype="lock" data-i18n="w_type_lock">Bloqueo</button>
+      </div>
+
+      <div class="widget-time-tabs" id="widget-time-tabs" role="tablist" data-i18n-aria="w_time_aria" aria-label="Luz del día en widget">
+        <button type="button" class="widget-time-pill active" data-wtime="auto">Auto</button>
+        <button type="button" class="widget-time-pill" data-wtime="dawn" data-i18n="w_time_dawn">Amanecer</button>
+        <button type="button" class="widget-time-pill" data-wtime="day" data-i18n="w_time_day">Día</button>
+        <button type="button" class="widget-time-pill" data-wtime="sunset" data-i18n="w_time_sunset">Tarde</button>
+        <button type="button" class="widget-time-pill" data-wtime="night" data-i18n="w_time_night">Noche</button>
+      </div>
+
+      <div class="widget-theme-tabs" id="widget-theme-tabs" role="tablist" data-i18n-aria="w_theme_aria" aria-label="Tema del widget">
+        <button type="button" class="widget-time-pill active" data-wtheme="auto" data-i18n="w_theme_auto">Tema auto (noche)</button>
+        <button type="button" class="widget-time-pill" data-wtheme="light" data-i18n="w_theme_light">Siempre claro</button>
+        <button type="button" class="widget-time-pill" data-wtheme="dark" data-i18n="w_theme_dark">Siempre oscuro</button>
+      </div>
+
+      <div class="pixel-wallpaper-stage" id="pixel-widget-stage" data-wtime="day"></div>
+
+      <p class="widget-studio-note" data-i18n="w_note">Interactivo: toca un reto del widget para completarlo o abrirlo sin navegar por la app.</p>
+    </div>
+  </div>
+
+  <!-- MODAL 9: EXPLORADOR INTERACTIVO EN PRIMERA PERSONA (VALLE Y COSTA) -->
+  <div class="modal-overlay modal-explore-costa hidden" id="modal-explore-costa" role="dialog" aria-modal="true" data-i18n-aria="exp_aria" aria-label="Explorar bioma en primera persona" data-biome="costa">
+    <div class="explore-topbar">
+      <button type="button" class="viewer-ctrl-btn" id="btn-close-explore-costa" data-i18n-aria="exp_back_aria" aria-label="Volver al visor 3D">
+        <span class="material-symbols-rounded">arrow_back</span>
+      </button>
+      <div class="viewer-title-block">
+        <h2 id="explore-biome-title">Costa Mediterránea</h2>
+        <p id="explore-spot-sub">El Faro · Patio de piedra y torre al mar</p>
+      </div>
+      <div class="explore-top-actions">
+        <button type="button" class="viewer-ctrl-btn" id="explore-weather-btn" data-i18n-aria="exp_weather_aria" data-i18n-title="exp_weather_title" aria-label="Cambiar clima en vista 3D" title="Clima vivo">
+          <span class="material-symbols-rounded" id="explore-weather-icon">partly_cloudy_day</span>
+        </button>
+        <button type="button" class="viewer-ctrl-btn" id="explore-light-btn" data-i18n-aria="exp_light_aria" aria-label="Cambiar hora del día">
+          <span class="material-symbols-rounded" id="explore-light-icon">brightness_auto</span>
+        </button>
+        <button type="button" class="viewer-ctrl-btn" id="explore-sound-btn" data-i18n-aria="exp_sound_aria" aria-label="Sonido posicional 3D">
+          <span class="material-symbols-rounded" id="explore-sound-icon">volume_off</span>
+        </button>
+      </div>
+    </div>
+
+    <canvas id="explore-costa-canvas" class="explore-canvas"></canvas>
+
+    <div class="explore-caption" id="explore-caption">Arrastra 360° para mirar · Entra en el Faro, Muelle, Casa o Árbol</div>
+
+    <div class="explore-walk-pad" id="explore-walk-pad" data-i18n-aria="exp_pad_aria" aria-label="Controles para caminar por el bioma">
+      <button type="button" class="explore-walk-btn is-up" data-move="fwd" data-i18n-aria="exp_fwd_aria" aria-label="Avanzar">
+        <span class="material-symbols-rounded">keyboard_arrow_up</span>
+      </button>
+      <button type="button" class="explore-walk-btn is-left" data-move="left" data-i18n-aria="exp_left_aria" aria-label="Paso a la izquierda">
+        <span class="material-symbols-rounded">keyboard_arrow_left</span>
+      </button>
+      <button type="button" class="explore-walk-btn is-down" data-move="back" data-i18n-aria="exp_back_move_aria" aria-label="Retroceder">
+        <span class="material-symbols-rounded">keyboard_arrow_down</span>
+      </button>
+      <button type="button" class="explore-walk-btn is-right" data-move="right" data-i18n-aria="exp_right_aria" aria-label="Paso a la derecha">
+        <span class="material-symbols-rounded">keyboard_arrow_right</span>
+      </button>
+    </div>
+
+    <div class="explore-spots-dock" id="explore-spots-dock" role="tablist" data-i18n-aria="exp_spots_aria" aria-label="Puntos del bioma">
+      <button type="button" class="explore-spot-pill active" data-spot="faro">Faro</button>
+      <button type="button" class="explore-spot-pill" data-spot="cala">Muelle</button>
+      <button type="button" class="explore-spot-pill" data-spot="plaza">Casa</button>
+      <button type="button" class="explore-spot-pill" data-spot="molino">Árbol</button>
+    </div>
+
+    <div class="explore-photo-overlay hidden" id="explore-photo-overlay" role="dialog" data-i18n-aria="exp_photo_aria" aria-label="Recuerdo del Muro Real">
+      <div class="explore-photo-frame-card">
+        <button type="button" class="explore-photo-close" id="explore-photo-close" data-i18n-aria="exp_photo_close_aria" aria-label="Cerrar cuadro">
+          <span class="material-symbols-rounded">close</span>
+        </button>
+        <div class="explore-photo-img-wrap">
+          <img id="explore-photo-img" src="" data-i18n-alt="exp_photo_alt" alt="Recuerdo del Muro Real" />
+        </div>
+        <div class="explore-photo-meta">
+          <span class="explore-photo-tag" id="explore-photo-date" data-i18n="exp_photo_date_default">Muro Real</span>
+          <strong id="explore-photo-title" data-i18n="exp_photo_title_default">Tu recuerdo</strong>
+          <p id="explore-photo-hint"></p>
+        </div>
+      </div>
+    </div>
+  </div>
+  </div>
+
+  <script defer src="js/i18n.js?v=26"></script>
+  <script defer src="data/catalog.js?v=26"></script>
+  <script defer src="js/audio.js?v=26"></script>
+  <script defer src="js/mascot.js?v=26"></script>
+  <script defer src="js/social.js?v=26"></script>
+  <script defer src="js/explore-costa.js?v=26"></script>
+  <script defer src="js/world-map.js?v=26"></script>
+  <script defer src="js/app.js?v=26"></script>
+  <script>
+    if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+      window.addEventListener('load', function () {
+        navigator.serviceWorker.register('./sw.js').catch(function () {});
+      });
+    }
+  </script>
+</body>
+</html>

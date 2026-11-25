@@ -1,0 +1,1487 @@
+/**
+ * Splash — Catálogo Bilingüe ES / EN (47 Objetivos Base + 20 Misiones de Bioma)
+ * Iconos: Material Symbols Rounded (sin emojis)
+ * Categorías: RAPIDO (<2 min), MEDIO (10-20 min), LARGO (30-60+ min)
+ * Verificación: TOQUE, TEMPORIZADOR, SOCIAL, PUENTE_ANALOGICO
+ */
+(function () {
+  function isEn(lang) {
+    if (lang) return lang === 'en';
+    return !!(window.SplashI18n && window.SplashI18n.isEn());
+  }
+  const RAW_CATALOG = [
+  {
+    "id": 1,
+    "tituloCorto": "Desconecta",
+    "titulo": "Descansar la vista mirando a lo lejos 20 seg",
+    "categoria": "RAPIDO",
+    "subcategoria": "Cuerpo y energía",
+    "icono": "visibility",
+    "esFavorito": false,
+    "estaOculto": false,
+    "tipoVerificacion": "TOQUE",
+    "es": {
+      "tituloCorto": "Desconecta",
+      "titulo": "Descansar la vista mirando a lo lejos 20 seg",
+      "subcategoria": "Cuerpo y energía"
+    },
+    "en": {
+      "tituloCorto": "Eye Rest",
+      "titulo": "Rest your eyes by looking at something far away for 20 sec",
+      "subcategoria": "Body & Energy"
+    }
+  },
+  {
+    "id": 2,
+    "tituloCorto": "Fast Check",
+    "titulo": "Corregir y estirar la postura de la espalda y relajar los hombros",
+    "categoria": "RAPIDO",
+    "subcategoria": "Cuerpo y energía",
+    "icono": "accessibility_new",
+    "esFavorito": false,
+    "estaOculto": false,
+    "tipoVerificacion": "TOQUE",
+    "es": {
+      "tituloCorto": "Fast Check",
+      "titulo": "Corregir y estirar la postura de la espalda y relajar los hombros",
+      "subcategoria": "Cuerpo y energía"
+    },
+    "en": {
+      "tituloCorto": "Fast Check",
+      "titulo": "Fix and stretch your back posture and relax your shoulders",
+      "subcategoria": "Body & Energy"
+    }
+  },
+  {
+    "id": 3,
+    "tituloCorto": "Splash",
+    "titulo": "Lavarse la cara con agua fría para despejarse",
+    "categoria": "RAPIDO",
+    "subcategoria": "Cuerpo y energía",
+    "icono": "water_drop",
+    "esFavorito": false,
+    "estaOculto": false,
+    "tipoVerificacion": "TOQUE",
+    "es": {
+      "tituloCorto": "Splash",
+      "titulo": "Lavarse la cara con agua fría para despejarse",
+      "subcategoria": "Cuerpo y energía"
+    },
+    "en": {
+      "tituloCorto": "Splash",
+      "titulo": "Splash cold water on your face to refresh and reset",
+      "subcategoria": "Body & Energy"
+    }
+  },
+  {
+    "id": 4,
+    "tituloCorto": "10x Express",
+    "titulo": "Hacer 10 sentadillas o 10 flexiones rápidas para activar la circulación",
+    "categoria": "RAPIDO",
+    "subcategoria": "Cuerpo y energía",
+    "icono": "fitness_center",
+    "esFavorito": false,
+    "estaOculto": false,
+    "tipoVerificacion": "TOQUE",
+    "es": {
+      "tituloCorto": "10x Express",
+      "titulo": "Hacer 10 sentadillas o 10 flexiones rápidas para activar la circulación",
+      "subcategoria": "Cuerpo y energía"
+    },
+    "en": {
+      "tituloCorto": "10x Express",
+      "titulo": "Do 10 quick squats or 10 push-ups to boost circulation",
+      "subcategoria": "Body & Energy"
+    }
+  },
+  {
+    "id": 5,
+    "tituloCorto": "Respira hondo",
+    "titulo": "Respirar de forma relajada durante 1 minuto",
+    "categoria": "RAPIDO",
+    "subcategoria": "Cuerpo y energía",
+    "icono": "air",
+    "esFavorito": true,
+    "estaOculto": false,
+    "tipoVerificacion": "TOQUE",
+    "es": {
+      "tituloCorto": "Respira hondo",
+      "titulo": "Respirar de forma relajada durante 1 minuto",
+      "subcategoria": "Cuerpo y energía"
+    },
+    "en": {
+      "tituloCorto": "Deep Breath",
+      "titulo": "Breathe slowly and calmly for 1 full minute",
+      "subcategoria": "Body & Energy"
+    }
+  },
+  {
+    "id": 6,
+    "tituloCorto": "Camina descalzo",
+    "titulo": "Descalzarse en casa y apoyar los pies en el suelo unos minutos",
+    "categoria": "RAPIDO",
+    "subcategoria": "Cuerpo y energía",
+    "icono": "footprint",
+    "esFavorito": false,
+    "estaOculto": false,
+    "tipoVerificacion": "TOQUE",
+    "es": {
+      "tituloCorto": "Camina descalzo",
+      "titulo": "Descalzarse en casa y apoyar los pies en el suelo unos minutos",
+      "subcategoria": "Cuerpo y energía"
+    },
+    "en": {
+      "tituloCorto": "Barefoot Ground",
+      "titulo": "Take off your shoes at home and feel the floor for a few minutes",
+      "subcategoria": "Body & Energy"
+    }
+  },
+  {
+    "id": 7,
+    "tituloCorto": "Tea Time",
+    "titulo": "Prepararse una infusión",
+    "categoria": "RAPIDO",
+    "subcategoria": "Cuerpo y energía",
+    "icono": "local_cafe",
+    "esFavorito": false,
+    "estaOculto": false,
+    "tipoVerificacion": "TOQUE",
+    "es": {
+      "tituloCorto": "Tea Time",
+      "titulo": "Prepararse una infusión",
+      "subcategoria": "Cuerpo y energía"
+    },
+    "en": {
+      "tituloCorto": "Tea Time",
+      "titulo": "Brew yourself a warm cup of herbal tea",
+      "subcategoria": "Body & Energy"
+    }
+  },
+  {
+    "id": 8,
+    "tituloCorto": "Mensaje sorpresa",
+    "titulo": "Enviar un mensaje corto o audio de «¿Qué tal va tu semana?» a un amigo",
+    "categoria": "RAPIDO",
+    "subcategoria": "Vínculos humanos",
+    "icono": "chat_bubble",
+    "esFavorito": false,
+    "estaOculto": false,
+    "tipoVerificacion": "TOQUE",
+    "es": {
+      "tituloCorto": "Mensaje sorpresa",
+      "titulo": "Enviar un mensaje corto o audio de «¿Qué tal va tu semana?» a un amigo",
+      "subcategoria": "Vínculos humanos"
+    },
+    "en": {
+      "tituloCorto": "Surprise Ping",
+      "titulo": "Send a short \"How's your week going?\" text or voice note to a friend",
+      "subcategoria": "Human Ties"
+    }
+  },
+  {
+    "id": 9,
+    "tituloCorto": "Zero inbox",
+    "titulo": "Responder a un mensaje pendiente que llevas posponiendo",
+    "categoria": "RAPIDO",
+    "subcategoria": "Vínculos humanos",
+    "icono": "mail",
+    "esFavorito": false,
+    "estaOculto": false,
+    "tipoVerificacion": "TOQUE",
+    "es": {
+      "tituloCorto": "Zero inbox",
+      "titulo": "Responder a un mensaje pendiente que llevas posponiendo",
+      "subcategoria": "Vínculos humanos"
+    },
+    "en": {
+      "tituloCorto": "Zero Inbox",
+      "titulo": "Reply to a pending message you have been putting off",
+      "subcategoria": "Human Ties"
+    }
+  },
+  {
+    "id": 10,
+    "tituloCorto": "Agradece",
+    "titulo": "Dar las gracias de forma genuina a alguien hoy",
+    "categoria": "RAPIDO",
+    "subcategoria": "Vínculos humanos",
+    "icono": "favorite",
+    "esFavorito": false,
+    "estaOculto": false,
+    "tipoVerificacion": "TOQUE",
+    "es": {
+      "tituloCorto": "Agradece",
+      "titulo": "Dar las gracias de forma genuina a alguien hoy",
+      "subcategoria": "Vínculos humanos"
+    },
+    "en": {
+      "tituloCorto": "Say Thanks",
+      "titulo": "Genuinely thank someone for something today",
+      "subcategoria": "Human Ties"
+    }
+  },
+  {
+    "id": 11,
+    "tituloCorto": "Memory Drop",
+    "titulo": "Enviar una foto o recuerdo gracioso a un familiar o amigo",
+    "categoria": "RAPIDO",
+    "subcategoria": "Vínculos humanos",
+    "icono": "photo_camera",
+    "esFavorito": false,
+    "estaOculto": false,
+    "tipoVerificacion": "TOQUE",
+    "es": {
+      "tituloCorto": "Memory Drop",
+      "titulo": "Enviar una foto o recuerdo gracioso a un familiar o amigo",
+      "subcategoria": "Vínculos humanos"
+    },
+    "en": {
+      "tituloCorto": "Memory Drop",
+      "titulo": "Send a funny photo or good memory to a friend or family member",
+      "subcategoria": "Human Ties"
+    }
+  },
+  {
+    "id": 13,
+    "tituloCorto": "Song Drop",
+    "titulo": "Enviar una canción que te recuerde a un amigo o que acabes de descubrir",
+    "categoria": "RAPIDO",
+    "subcategoria": "Vínculos humanos",
+    "icono": "music_note",
+    "esFavorito": false,
+    "estaOculto": false,
+    "tipoVerificacion": "TOQUE",
+    "es": {
+      "tituloCorto": "Song Drop",
+      "titulo": "Enviar una canción que te recuerde a un amigo o que acabes de descubrir",
+      "subcategoria": "Vínculos humanos"
+    },
+    "en": {
+      "tituloCorto": "Song Drop",
+      "titulo": "Send a song that reminds you of a friend or one you just discovered",
+      "subcategoria": "Human Ties"
+    }
+  },
+  {
+    "id": 14,
+    "tituloCorto": "Airbender",
+    "titulo": "Ventilar la habitación abriendo las ventanas 2 minutos",
+    "categoria": "RAPIDO",
+    "subcategoria": "Entorno y mente",
+    "icono": "window",
+    "esFavorito": false,
+    "estaOculto": false,
+    "tipoVerificacion": "TOQUE",
+    "franjaHoraria": "manana",
+    "es": {
+      "tituloCorto": "Airbender",
+      "titulo": "Ventilar la habitación abriendo las ventanas 2 minutos",
+      "subcategoria": "Entorno y mente"
+    },
+    "en": {
+      "tituloCorto": "Airbender",
+      "titulo": "Open the windows and air out the room for 2 minutes",
+      "subcategoria": "Space & Mind"
+    }
+  },
+  {
+    "id": 15,
+    "tituloCorto": "Fast Wipe",
+    "titulo": "Limpiar la pantalla del móvil o del ordenador",
+    "categoria": "RAPIDO",
+    "subcategoria": "Entorno y mente",
+    "icono": "auto_awesome",
+    "esFavorito": false,
+    "estaOculto": false,
+    "tipoVerificacion": "TOQUE",
+    "es": {
+      "tituloCorto": "Fast Wipe",
+      "titulo": "Limpiar la pantalla del móvil o del ordenador",
+      "subcategoria": "Entorno y mente"
+    },
+    "en": {
+      "tituloCorto": "Fast Wipe",
+      "titulo": "Wipe and clean your phone or laptop screen",
+      "subcategoria": "Space & Mind"
+    }
+  },
+  {
+    "id": 16,
+    "tituloCorto": "Thankful note",
+    "titulo": "Anotar 1 cosa por la que sentirse agradecido hoy",
+    "categoria": "RAPIDO",
+    "subcategoria": "Entorno y mente",
+    "icono": "eco",
+    "esFavorito": true,
+    "estaOculto": false,
+    "tipoVerificacion": "TOQUE",
+    "es": {
+      "tituloCorto": "Thankful note",
+      "titulo": "Anotar 1 cosa por la que sentirse agradecido hoy",
+      "subcategoria": "Entorno y mente"
+    },
+    "en": {
+      "tituloCorto": "Thankful Note",
+      "titulo": "Write down 1 thing you feel grateful for today",
+      "subcategoria": "Space & Mind"
+    }
+  },
+  {
+    "id": 17,
+    "tituloCorto": "Brain dump",
+    "titulo": "Vaciar un pensamiento o pendiente de la cabeza anotándolo en papel",
+    "categoria": "RAPIDO",
+    "subcategoria": "Entorno y mente",
+    "icono": "edit_note",
+    "esFavorito": false,
+    "estaOculto": false,
+    "tipoVerificacion": "TOQUE",
+    "es": {
+      "tituloCorto": "Brain dump",
+      "titulo": "Vaciar un pensamiento o pendiente de la cabeza anotándolo en papel",
+      "subcategoria": "Entorno y mente"
+    },
+    "en": {
+      "tituloCorto": "Brain Dump",
+      "titulo": "Clear a nagging thought or to-do from your head onto paper",
+      "subcategoria": "Space & Mind"
+    }
+  },
+  {
+    "id": 18,
+    "tituloCorto": "Estiramientos",
+    "titulo": "Realizar estiramientos y movilidad articular",
+    "categoria": "RAPIDO",
+    "subcategoria": "Movimiento y aire libre",
+    "icono": "self_improvement",
+    "esFavorito": false,
+    "estaOculto": false,
+    "tipoVerificacion": "TOQUE",
+    "es": {
+      "tituloCorto": "Estiramientos",
+      "titulo": "Realizar estiramientos y movilidad articular",
+      "subcategoria": "Movimiento y aire libre"
+    },
+    "en": {
+      "tituloCorto": "Quick Stretch",
+      "titulo": "Do gentle stretches and joint mobility moves",
+      "subcategoria": "Movement & Outdoors"
+    }
+  },
+  {
+    "id": 19,
+    "tituloCorto": "SunTime",
+    "titulo": "Tomar el sol al aire libre durante 10–15 minutos (sin pantalla)",
+    "categoria": "MEDIO",
+    "subcategoria": "Movimiento y aire libre",
+    "icono": "wb_sunny",
+    "esFavorito": true,
+    "estaOculto": false,
+    "tipoVerificacion": "TEMPORIZADOR",
+    "franjaHoraria": "dia",
+    "es": {
+      "tituloCorto": "SunTime",
+      "titulo": "Tomar el sol al aire libre durante 10–15 minutos (sin pantalla)",
+      "subcategoria": "Movimiento y aire libre"
+    },
+    "en": {
+      "tituloCorto": "SunTime",
+      "titulo": "Step outside into natural sunlight for 10–15 minutes (no screens)",
+      "subcategoria": "Movement & Outdoors"
+    }
+  },
+  {
+    "id": 20,
+    "tituloCorto": "Salir a caminar",
+    "titulo": "Salir a caminar al menos 10 minutos",
+    "categoria": "MEDIO",
+    "subcategoria": "Movimiento y aire libre",
+    "icono": "directions_walk",
+    "esFavorito": false,
+    "estaOculto": false,
+    "tipoVerificacion": "TEMPORIZADOR",
+    "es": {
+      "tituloCorto": "Salir a caminar",
+      "titulo": "Salir a caminar al menos 10 minutos",
+      "subcategoria": "Movimiento y aire libre"
+    },
+    "en": {
+      "tituloCorto": "Go for a Walk",
+      "titulo": "Go outside for at least a 10-minute walk",
+      "subcategoria": "Movement & Outdoors"
+    }
+  },
+  {
+    "id": 21,
+    "tituloCorto": "Café Offline",
+    "titulo": "Quedar a tomar un café, infusión o bebida con un amigo o familiar, dejando el móvil guardado",
+    "categoria": "MEDIO",
+    "subcategoria": "Vínculos y presencia",
+    "icono": "emoji_food_beverage",
+    "esFavorito": false,
+    "estaOculto": false,
+    "tipoVerificacion": "TEMPORIZADOR",
+    "es": {
+      "tituloCorto": "Café Offline",
+      "titulo": "Quedar a tomar un café, infusión o bebida con un amigo o familiar, dejando el móvil guardado",
+      "subcategoria": "Vínculos y presencia"
+    },
+    "en": {
+      "tituloCorto": "Offline Coffee",
+      "titulo": "Meet a friend or family member for coffee, tea, or a drink with phones put away",
+      "subcategoria": "Presence & Ties"
+    }
+  },
+  {
+    "id": 22,
+    "tituloCorto": "Mensaje dedicado",
+    "titulo": "Escribir un mensaje largo y dedicado poniéndote al día con un amigo lejano",
+    "categoria": "MEDIO",
+    "subcategoria": "Vínculos y presencia",
+    "icono": "mark_email_read",
+    "esFavorito": false,
+    "estaOculto": false,
+    "tipoVerificacion": "SOCIAL",
+    "es": {
+      "tituloCorto": "Mensaje dedicado",
+      "titulo": "Escribir un mensaje largo y dedicado poniéndote al día con un amigo lejano",
+      "subcategoria": "Vínculos y presencia"
+    },
+    "en": {
+      "tituloCorto": "Thoughtful Note",
+      "titulo": "Write a long, thoughtful message catching up with a distant friend",
+      "subcategoria": "Presence & Ties"
+    }
+  },
+  {
+    "id": 23,
+    "tituloCorto": "Family Time",
+    "titulo": "Jugar o dedicar atención plena de 15 minutos a tu mascota, amigos o familia",
+    "categoria": "MEDIO",
+    "subcategoria": "Vínculos y presencia",
+    "icono": "pets",
+    "esFavorito": false,
+    "estaOculto": false,
+    "tipoVerificacion": "TEMPORIZADOR",
+    "es": {
+      "tituloCorto": "Family Time",
+      "titulo": "Jugar o dedicar atención plena de 15 minutos a tu mascota, amigos o familia",
+      "subcategoria": "Vínculos y presencia"
+    },
+    "en": {
+      "tituloCorto": "Family Time",
+      "titulo": "Play or spend 15 minutes of undivided attention with family, friends, or a pet",
+      "subcategoria": "Presence & Ties"
+    }
+  },
+  {
+    "id": 24,
+    "tituloCorto": "Modo pausa",
+    "titulo": "Meditar o practicar atención plena en silencio durante 10 minutos",
+    "categoria": "MEDIO",
+    "subcategoria": "Mente y destreza",
+    "icono": "spa",
+    "esFavorito": false,
+    "estaOculto": false,
+    "tipoVerificacion": "TEMPORIZADOR",
+    "es": {
+      "tituloCorto": "Modo pausa",
+      "titulo": "Meditar o practicar atención plena en silencio durante 10 minutos",
+      "subcategoria": "Mente y destreza"
+    },
+    "en": {
+      "tituloCorto": "Pause Mode",
+      "titulo": "Meditate or practice quiet mindfulness in silence for 10 minutes",
+      "subcategoria": "Mind & Craft"
+    }
+  },
+  {
+    "id": 25,
+    "tituloCorto": "Repasar idioma",
+    "titulo": "Repasar vocabulario, tarjetas o hacer una lección corta de un idioma",
+    "categoria": "MEDIO",
+    "subcategoria": "Mente y destreza",
+    "icono": "translate",
+    "esFavorito": false,
+    "estaOculto": false,
+    "tipoVerificacion": "TEMPORIZADOR",
+    "es": {
+      "tituloCorto": "Repasar idioma",
+      "titulo": "Repasar vocabulario, tarjetas o hacer una lección corta de un idioma",
+      "subcategoria": "Mente y destreza"
+    },
+    "en": {
+      "tituloCorto": "Language Drill",
+      "titulo": "Review vocabulary, flashcards, or a short language lesson",
+      "subcategoria": "Mind & Craft"
+    }
+  },
+  {
+    "id": 26,
+    "tituloCorto": "Pódcast break",
+    "titulo": "Escuchar un episodio corto de un pódcast educativo o cultural",
+    "categoria": "MEDIO",
+    "subcategoria": "Mente y destreza",
+    "icono": "headphones",
+    "esFavorito": false,
+    "estaOculto": false,
+    "tipoVerificacion": "TEMPORIZADOR",
+    "es": {
+      "tituloCorto": "Pódcast break",
+      "titulo": "Escuchar un episodio corto de un pódcast educativo o cultural",
+      "subcategoria": "Mente y destreza"
+    },
+    "en": {
+      "tituloCorto": "Podcast Break",
+      "titulo": "Listen to a short educational or cultural podcast episode",
+      "subcategoria": "Mind & Craft"
+    }
+  },
+  {
+    "id": 27,
+    "tituloCorto": "Cuaderno abierto",
+    "titulo": "Hacer un ejercicio de escritura libre o journaling en un cuaderno físico",
+    "categoria": "MEDIO",
+    "subcategoria": "Mente y destreza",
+    "icono": "menu_book",
+    "esFavorito": true,
+    "estaOculto": false,
+    "tipoVerificacion": "TEMPORIZADOR",
+    "es": {
+      "tituloCorto": "Cuaderno abierto",
+      "titulo": "Hacer un ejercicio de escritura libre o journaling en un cuaderno físico",
+      "subcategoria": "Mente y destreza"
+    },
+    "en": {
+      "tituloCorto": "Open Notebook",
+      "titulo": "Do freewriting or journaling in a physical notebook",
+      "subcategoria": "Mind & Craft"
+    }
+  },
+  {
+    "id": 29,
+    "tituloCorto": "Reset de zona",
+    "titulo": "Ordenar una zona concreta (el escritorio, un cajón o la mesilla de noche)",
+    "categoria": "MEDIO",
+    "subcategoria": "Hogar y orden",
+    "icono": "inventory_2",
+    "esFavorito": false,
+    "estaOculto": false,
+    "tipoVerificacion": "TEMPORIZADOR",
+    "es": {
+      "tituloCorto": "Reset de zona",
+      "titulo": "Ordenar una zona concreta (el escritorio, un cajón o la mesilla de noche)",
+      "subcategoria": "Hogar y orden"
+    },
+    "en": {
+      "tituloCorto": "Zone Reset",
+      "titulo": "Tidy one specific spot (your desk, a drawer, or nightstand)",
+      "subcategoria": "Home & Order"
+    }
+  },
+  {
+    "id": 30,
+    "tituloCorto": "Snack real",
+    "titulo": "Preparar un desayuno, merienda o snack saludable desde cero",
+    "categoria": "MEDIO",
+    "subcategoria": "Hogar y orden",
+    "icono": "bakery_dining",
+    "esFavorito": false,
+    "estaOculto": false,
+    "tipoVerificacion": "TEMPORIZADOR",
+    "es": {
+      "tituloCorto": "Snack real",
+      "titulo": "Preparar un desayuno, merienda o snack saludable desde cero",
+      "subcategoria": "Hogar y orden"
+    },
+    "en": {
+      "tituloCorto": "Real Snack",
+      "titulo": "Make a fresh, healthy breakfast or snack from scratch",
+      "subcategoria": "Home & Order"
+    }
+  },
+  {
+    "id": 31,
+    "tituloCorto": "Inbox Zero",
+    "titulo": "Hacer una limpieza rápida de correos electrónicos o archivos innecesarios",
+    "categoria": "MEDIO",
+    "subcategoria": "Hogar y orden",
+    "icono": "folder_open",
+    "esFavorito": false,
+    "estaOculto": false,
+    "tipoVerificacion": "TEMPORIZADOR",
+    "es": {
+      "tituloCorto": "Inbox Zero",
+      "titulo": "Hacer una limpieza rápida de correos electrónicos o archivos innecesarios",
+      "subcategoria": "Hogar y orden"
+    },
+    "en": {
+      "tituloCorto": "Inbox Cleanup",
+      "titulo": "Do a quick sweep of old emails or unneeded files",
+      "subcategoria": "Home & Order"
+    }
+  },
+  {
+    "id": 32,
+    "tituloCorto": "Cuidar plantas",
+    "titulo": "Regar y revisar el estado de las plantas de casa",
+    "categoria": "MEDIO",
+    "subcategoria": "Hogar y orden",
+    "icono": "potted_plant",
+    "esFavorito": false,
+    "estaOculto": false,
+    "tipoVerificacion": "TEMPORIZADOR",
+    "es": {
+      "tituloCorto": "Cuidar plantas",
+      "titulo": "Regar y revisar el estado de las plantas de casa",
+      "subcategoria": "Hogar y orden"
+    },
+    "en": {
+      "tituloCorto": "Plant Care",
+      "titulo": "Water and check on your houseplants",
+      "subcategoria": "Home & Order"
+    }
+  },
+  {
+    "id": 33,
+    "tituloCorto": "Carrete limpio",
+    "titulo": "Organizar el carrete de fotos borrando capturas y duplicados recientes",
+    "categoria": "MEDIO",
+    "subcategoria": "Hogar y orden",
+    "icono": "photo_library",
+    "esFavorito": false,
+    "estaOculto": false,
+    "tipoVerificacion": "TEMPORIZADOR",
+    "es": {
+      "tituloCorto": "Carrete limpio",
+      "titulo": "Organizar el carrete de fotos borrando capturas y duplicados recientes",
+      "subcategoria": "Hogar y orden"
+    },
+    "en": {
+      "tituloCorto": "Clean Camera Roll",
+      "titulo": "Sort your camera roll by deleting recent screenshots and duplicates",
+      "subcategoria": "Home & Order"
+    }
+  },
+  {
+    "id": 34,
+    "tituloCorto": "Fold & Tidy",
+    "titulo": "Escuchar un pódcast o audiolibro mientras doblas ropa",
+    "categoria": "MEDIO",
+    "subcategoria": "Hogar y orden",
+    "icono": "checkroom",
+    "esFavorito": false,
+    "estaOculto": false,
+    "tipoVerificacion": "TEMPORIZADOR",
+    "es": {
+      "tituloCorto": "Fold & Tidy",
+      "titulo": "Escuchar un pódcast o audiolibro mientras doblas ropa",
+      "subcategoria": "Hogar y orden"
+    },
+    "en": {
+      "tituloCorto": "Fold & Tidy",
+      "titulo": "Listen to a podcast or audiobook while folding laundry",
+      "subcategoria": "Home & Order"
+    }
+  },
+  {
+    "id": 35,
+    "tituloCorto": "Cine con atención",
+    "titulo": "Ver un documental, película o serie sin hacer scroll",
+    "categoria": "LARGO",
+    "subcategoria": "Cultura y naturaleza",
+    "icono": "movie",
+    "esFavorito": false,
+    "estaOculto": false,
+    "tipoVerificacion": "PUENTE_ANALOGICO",
+    "es": {
+      "tituloCorto": "Cine con atención",
+      "titulo": "Ver un documental, película o serie sin hacer scroll",
+      "subcategoria": "Cultura y naturaleza"
+    },
+    "en": {
+      "tituloCorto": "Mindful Watch",
+      "titulo": "Watch a documentary, film, or series episode without scrolling",
+      "subcategoria": "Culture & Nature"
+    }
+  },
+  {
+    "id": 36,
+    "tituloCorto": "Caminata larga",
+    "titulo": "Hacer una caminata larga por la naturaleza, el parque o la playa",
+    "categoria": "LARGO",
+    "subcategoria": "Cultura y naturaleza",
+    "icono": "forest",
+    "esFavorito": true,
+    "estaOculto": false,
+    "tipoVerificacion": "PUENTE_ANALOGICO",
+    "franjaHoraria": "dia",
+    "es": {
+      "tituloCorto": "Caminata larga",
+      "titulo": "Hacer una caminata larga por la naturaleza, el parque o la playa",
+      "subcategoria": "Cultura y naturaleza"
+    },
+    "en": {
+      "tituloCorto": "Long Walk",
+      "titulo": "Take a long walk through nature, a park, or by the water",
+      "subcategoria": "Culture & Nature"
+    }
+  },
+  {
+    "id": 37,
+    "tituloCorto": "Ruta fotográfica",
+    "titulo": "Hacer una ruta fotográfica sin rumbo para capturar fotos bonitas",
+    "categoria": "LARGO",
+    "subcategoria": "Cultura y naturaleza",
+    "icono": "camera",
+    "esFavorito": false,
+    "estaOculto": false,
+    "tipoVerificacion": "PUENTE_ANALOGICO",
+    "franjaHoraria": "dia",
+    "es": {
+      "tituloCorto": "Ruta fotográfica",
+      "titulo": "Hacer una ruta fotográfica sin rumbo para capturar fotos bonitas",
+      "subcategoria": "Cultura y naturaleza"
+    },
+    "en": {
+      "tituloCorto": "Photo Walk",
+      "titulo": "Take a wandering photo walk to capture everyday scenes",
+      "subcategoria": "Culture & Nature"
+    }
+  },
+  {
+    "id": 38,
+    "tituloCorto": "Librería o museo",
+    "titulo": "Visitar una librería, biblioteca o museo sin prisa",
+    "categoria": "LARGO",
+    "subcategoria": "Cultura y naturaleza",
+    "icono": "museum",
+    "esFavorito": false,
+    "estaOculto": false,
+    "tipoVerificacion": "PUENTE_ANALOGICO",
+    "es": {
+      "tituloCorto": "Librería o museo",
+      "titulo": "Visitar una librería, biblioteca o museo sin prisa",
+      "subcategoria": "Cultura y naturaleza"
+    },
+    "en": {
+      "tituloCorto": "Books & Museum",
+      "titulo": "Visit a bookstore, library, or museum unhurried",
+      "subcategoria": "Culture & Nature"
+    }
+  },
+  {
+    "id": 39,
+    "tituloCorto": "Deep Work",
+    "titulo": "Trabajar en un proyecto personal, creativo o de emprendimiento (Modo Foco)",
+    "categoria": "LARGO",
+    "subcategoria": "Creación y aprendizaje",
+    "icono": "build",
+    "esFavorito": false,
+    "estaOculto": false,
+    "tipoVerificacion": "PUENTE_ANALOGICO",
+    "es": {
+      "tituloCorto": "Deep Work",
+      "titulo": "Trabajar en un proyecto personal, creativo o de emprendimiento (Modo Foco)",
+      "subcategoria": "Creación y aprendizaje"
+    },
+    "en": {
+      "tituloCorto": "Deep Work",
+      "titulo": "Work on a personal, creative, or side project in Focus Mode",
+      "subcategoria": "Creation & Learning"
+    }
+  },
+  {
+    "id": 40,
+    "tituloCorto": "Practicar habilidad",
+    "titulo": "Estudiar o practicar una habilidad compleja (programación, instrumento, dibujar)",
+    "categoria": "LARGO",
+    "subcategoria": "Creación y aprendizaje",
+    "icono": "palette",
+    "esFavorito": false,
+    "estaOculto": false,
+    "tipoVerificacion": "PUENTE_ANALOGICO",
+    "es": {
+      "tituloCorto": "Practicar habilidad",
+      "titulo": "Estudiar o practicar una habilidad compleja (programación, instrumento, dibujar)",
+      "subcategoria": "Creación y aprendizaje"
+    },
+    "en": {
+      "tituloCorto": "Practice Skill",
+      "titulo": "Study or practice a hands-on skill (coding, instrument, drawing)",
+      "subcategoria": "Creation & Learning"
+    }
+  },
+  {
+    "id": 41,
+    "tituloCorto": "Proyecto DIY",
+    "titulo": "Hacer un proyecto DIY o reparación en casa (arreglar algo, montar, pintar)",
+    "categoria": "LARGO",
+    "subcategoria": "Creación y aprendizaje",
+    "icono": "handyman",
+    "esFavorito": false,
+    "estaOculto": false,
+    "tipoVerificacion": "PUENTE_ANALOGICO",
+    "es": {
+      "tituloCorto": "Proyecto DIY",
+      "titulo": "Hacer un proyecto DIY o reparación en casa (arreglar algo, montar, pintar)",
+      "subcategoria": "Creación y aprendizaje"
+    },
+    "en": {
+      "tituloCorto": "DIY Project",
+      "titulo": "Tackle a home DIY project or repair (fix, assemble, paint)",
+      "subcategoria": "Creation & Learning"
+    }
+  },
+  {
+    "id": 42,
+    "tituloCorto": "Surprise Chef",
+    "titulo": "Cocinar una receta elaborada y saludable desde cero disfrutando el proceso",
+    "categoria": "LARGO",
+    "subcategoria": "Hogar y autocuidado",
+    "icono": "skillet",
+    "esFavorito": false,
+    "estaOculto": false,
+    "tipoVerificacion": "PUENTE_ANALOGICO",
+    "es": {
+      "tituloCorto": "Surprise Chef",
+      "titulo": "Cocinar una receta elaborada y saludable desde cero disfrutando el proceso",
+      "subcategoria": "Hogar y autocuidado"
+    },
+    "en": {
+      "tituloCorto": "Surprise Chef",
+      "titulo": "Cook an elaborate healthy meal from scratch and enjoy the process",
+      "subcategoria": "Home & Self-Care"
+    }
+  },
+  {
+    "id": 43,
+    "tituloCorto": "Limpieza profunda",
+    "titulo": "Hacer una limpieza profunda y reorganización de una habitación o armario",
+    "categoria": "LARGO",
+    "subcategoria": "Hogar y autocuidado",
+    "icono": "cleaning_services",
+    "esFavorito": false,
+    "estaOculto": false,
+    "tipoVerificacion": "PUENTE_ANALOGICO",
+    "es": {
+      "tituloCorto": "Limpieza profunda",
+      "titulo": "Hacer una limpieza profunda y reorganización de una habitación o armario",
+      "subcategoria": "Hogar y autocuidado"
+    },
+    "en": {
+      "tituloCorto": "Deep Clean",
+      "titulo": "Deep-clean and reorganize a full room or closet",
+      "subcategoria": "Home & Self-Care"
+    }
+  },
+  {
+    "id": 44,
+    "tituloCorto": "Cena sin pantallas",
+    "titulo": "Compartir una comida o cena larga y sin pantallas con pareja, familia o amigos",
+    "categoria": "LARGO",
+    "subcategoria": "Hogar y autocuidado",
+    "icono": "restaurant",
+    "esFavorito": false,
+    "estaOculto": false,
+    "tipoVerificacion": "PUENTE_ANALOGICO",
+    "franjaHoraria": "noche",
+    "es": {
+      "tituloCorto": "Cena sin pantallas",
+      "titulo": "Compartir una comida o cena larga y sin pantallas con pareja, familia o amigos",
+      "subcategoria": "Hogar y autocuidado"
+    },
+    "en": {
+      "tituloCorto": "Screen-Free Meal",
+      "titulo": "Share a long, unhurried dinner or meal with zero screens",
+      "subcategoria": "Home & Self-Care"
+    }
+  },
+  {
+    "id": 45,
+    "tituloCorto": "Autocuidado total",
+    "titulo": "Tomarse un tiempo de autocuidado completo (ducha relajante, rutina personal, sin estímulos)",
+    "categoria": "LARGO",
+    "subcategoria": "Hogar y autocuidado",
+    "icono": "bathtub",
+    "esFavorito": false,
+    "estaOculto": false,
+    "tipoVerificacion": "PUENTE_ANALOGICO",
+    "franjaHoraria": "noche",
+    "es": {
+      "tituloCorto": "Autocuidado total",
+      "titulo": "Tomarse un tiempo de autocuidado completo (ducha relajante, rutina personal, sin estímulos)",
+      "subcategoria": "Hogar y autocuidado"
+    },
+    "en": {
+      "tituloCorto": "Full Self-Care",
+      "titulo": "Take an unhurried self-care routine (warm shower, wind-down, low stimuli)",
+      "subcategoria": "Home & Self-Care"
+    }
+  },
+  {
+    "id": 46,
+    "tituloCorto": "Capítulo en papel",
+    "titulo": "Leer un libro físico durante 30–45 minutos",
+    "categoria": "LARGO",
+    "subcategoria": "Cultura y naturaleza",
+    "icono": "auto_stories",
+    "esFavorito": true,
+    "estaOculto": false,
+    "tipoVerificacion": "PUENTE_ANALOGICO",
+    "es": {
+      "tituloCorto": "Capítulo en papel",
+      "titulo": "Leer un libro físico durante 30–45 minutos",
+      "subcategoria": "Cultura y naturaleza"
+    },
+    "en": {
+      "tituloCorto": "Paper Chapter",
+      "titulo": "Read a physical book for 30–45 minutes",
+      "subcategoria": "Culture & Nature"
+    }
+  },
+  {
+    "id": 47,
+    "tituloCorto": "Dibujar a mano",
+    "titulo": "Dibujar en papel un objeto que tengas delante sin mirar referencias en pantalla",
+    "categoria": "MEDIO",
+    "subcategoria": "Manos analógicas",
+    "icono": "draw",
+    "esFavorito": false,
+    "estaOculto": false,
+    "tipoVerificacion": "TEMPORIZADOR",
+    "es": {
+      "tituloCorto": "Dibujar a mano",
+      "titulo": "Dibujar en papel un objeto que tengas delante sin mirar referencias en pantalla",
+      "subcategoria": "Manos analógicas"
+    },
+    "en": {
+      "tituloCorto": "Sketch by Hand",
+      "titulo": "Draw a real object in front of you on paper with zero screen references",
+      "subcategoria": "Analog Hands"
+    }
+  },
+  {
+    "id": 48,
+    "tituloCorto": "Cocinar sin pantalla",
+    "titulo": "Cocinar una comida de memoria o con libro, sin seguir vídeo-recetas en el móvil",
+    "categoria": "LARGO",
+    "subcategoria": "Manos analógicas",
+    "icono": "restaurant_menu",
+    "esFavorito": false,
+    "estaOculto": false,
+    "tipoVerificacion": "PUENTE_ANALOGICO",
+    "es": {
+      "tituloCorto": "Cocinar sin pantalla",
+      "titulo": "Cocinar una comida de memoria o con libro, sin seguir vídeo-recetas en el móvil",
+      "subcategoria": "Manos analógicas"
+    },
+    "en": {
+      "tituloCorto": "Cook Screen-Free",
+      "titulo": "Cook from memory or a paper cookbook without following phone videos",
+      "subcategoria": "Analog Hands"
+    }
+  },
+  {
+    "id": 49,
+    "tituloCorto": "Reparar o coser algo",
+    "titulo": "Arreglar, coser o ajustar algo pequeño de casa con tus manos",
+    "categoria": "MEDIO",
+    "subcategoria": "Manos analógicas",
+    "icono": "construction",
+    "esFavorito": false,
+    "estaOculto": false,
+    "tipoVerificacion": "TEMPORIZADOR",
+    "es": {
+      "tituloCorto": "Reparar o coser algo",
+      "titulo": "Arreglar, coser o ajustar algo pequeño de casa con tus manos",
+      "subcategoria": "Manos analógicas"
+    },
+    "en": {
+      "tituloCorto": "Fix or Mend",
+      "titulo": "Repair, sew, or adjust something small around the house by hand",
+      "subcategoria": "Analog Hands"
+    }
+  },
+  {
+    "id": 101,
+    "tituloCorto": "Respirar aire fresco",
+    "titulo": "Salir a la ventana o balcón y hacer 5 respiraciones profundas sintiendo el aire",
+    "categoria": "RAPIDO",
+    "subcategoria": "Misión del Valle",
+    "icono": "air",
+    "esFavorito": false,
+    "estaOculto": false,
+    "tipoVerificacion": "TOQUE",
+    "franjaHoraria": "manana",
+    "biomaExclusivo": "valle",
+    "esSecretoBioma": true,
+    "es": {
+      "tituloCorto": "Respirar aire fresco",
+      "titulo": "Salir a la ventana o balcón y hacer 5 respiraciones profundas sintiendo el aire",
+      "subcategoria": "Misión del Valle"
+    },
+    "en": {
+      "tituloCorto": "Breathe Fresh Air",
+      "titulo": "Step to a window or balcony and take 5 deep breaths feeling the air",
+      "subcategoria": "Valley Mission"
+    }
+  },
+  {
+    "id": 102,
+    "tituloCorto": "Caminar cuesta arriba",
+    "titulo": "Subir escaleras o caminar por una cuesta 10–15 minutos sin auriculares",
+    "categoria": "MEDIO",
+    "subcategoria": "Misión del Valle",
+    "icono": "hiking",
+    "esFavorito": false,
+    "estaOculto": false,
+    "tipoVerificacion": "TEMPORIZADOR",
+    "biomaExclusivo": "valle",
+    "esSecretoBioma": true,
+    "es": {
+      "tituloCorto": "Caminar cuesta arriba",
+      "titulo": "Subir escaleras o caminar por una cuesta 10–15 minutos sin auriculares",
+      "subcategoria": "Misión del Valle"
+    },
+    "en": {
+      "tituloCorto": "Uphill Walk",
+      "titulo": "Climb stairs or walk uphill for 10–15 minutes without headphones",
+      "subcategoria": "Valley Mission"
+    }
+  },
+  {
+    "id": 103,
+    "tituloCorto": "Mirar algo verde",
+    "titulo": "Observar una planta, árbol o parque real durante 1 minuto sin pantalla",
+    "categoria": "RAPIDO",
+    "subcategoria": "Misión de la Jungla",
+    "icono": "park",
+    "esFavorito": false,
+    "estaOculto": false,
+    "tipoVerificacion": "TOQUE",
+    "biomaExclusivo": "jungla",
+    "esSecretoBioma": true,
+    "es": {
+      "tituloCorto": "Mirar algo verde",
+      "titulo": "Observar una planta, árbol o parque real durante 1 minuto sin pantalla",
+      "subcategoria": "Misión de la Jungla"
+    },
+    "en": {
+      "tituloCorto": "Look at Something Green",
+      "titulo": "Observe a real plant, tree, or park for 1 minute without a screen",
+      "subcategoria": "Jungle Mission"
+    }
+  },
+  {
+    "id": 104,
+    "tituloCorto": "Escuchar agua o lluvia",
+    "titulo": "Hacer una pausa de 10 minutos escuchando lluvia, agua o sonido natural",
+    "categoria": "MEDIO",
+    "subcategoria": "Misión de la Jungla",
+    "icono": "water_drop",
+    "esFavorito": false,
+    "estaOculto": false,
+    "tipoVerificacion": "TEMPORIZADOR",
+    "biomaExclusivo": "jungla",
+    "esSecretoBioma": true,
+    "es": {
+      "tituloCorto": "Escuchar agua o lluvia",
+      "titulo": "Hacer una pausa de 10 minutos escuchando lluvia, agua o sonido natural",
+      "subcategoria": "Misión de la Jungla"
+    },
+    "en": {
+      "tituloCorto": "Listen to Water",
+      "titulo": "Take a 10-minute pause listening to rain, water, or natural sound",
+      "subcategoria": "Jungle Mission"
+    }
+  },
+  {
+    "id": 105,
+    "tituloCorto": "Mirar el cielo",
+    "titulo": "Levantar la vista al cielo, las nubes o el horizonte durante 1 minuto",
+    "categoria": "RAPIDO",
+    "subcategoria": "Misión de la Costa",
+    "icono": "cloud",
+    "esFavorito": false,
+    "estaOculto": false,
+    "tipoVerificacion": "TOQUE",
+    "franjaHoraria": "dia",
+    "biomaExclusivo": "costa",
+    "esSecretoBioma": true,
+    "es": {
+      "tituloCorto": "Mirar el cielo",
+      "titulo": "Levantar la vista al cielo, las nubes o el horizonte durante 1 minuto",
+      "subcategoria": "Misión de la Costa"
+    },
+    "en": {
+      "tituloCorto": "Look at the Sky",
+      "titulo": "Lift your eyes to the sky, clouds, or horizon for 1 minute",
+      "subcategoria": "Coast Mission"
+    }
+  },
+  {
+    "id": 106,
+    "tituloCorto": "Ver el atardecer",
+    "titulo": "Salir a ver caer la luz de la tarde sin grabar vídeo ni hacer fotos",
+    "categoria": "LARGO",
+    "subcategoria": "Misión de la Costa",
+    "icono": "wb_twilight",
+    "esFavorito": false,
+    "estaOculto": false,
+    "tipoVerificacion": "PUENTE_ANALOGICO",
+    "franjaHoraria": "noche",
+    "biomaExclusivo": "costa",
+    "esSecretoBioma": true,
+    "es": {
+      "tituloCorto": "Ver el atardecer",
+      "titulo": "Salir a ver caer la luz de la tarde sin grabar vídeo ni hacer fotos",
+      "subcategoria": "Misión de la Costa"
+    },
+    "en": {
+      "tituloCorto": "Watch the Sunset",
+      "titulo": "Go outside to watch the evening light fade without filming or taking photos",
+      "subcategoria": "Coast Mission"
+    }
+  },
+  {
+    "id": 107,
+    "tituloCorto": "Té en silencio",
+    "titulo": "Beber una taza de té, café o infusión despacio y sin mirar ninguna pantalla",
+    "categoria": "RAPIDO",
+    "subcategoria": "Misión de Kioto",
+    "icono": "emoji_food_beverage",
+    "esFavorito": false,
+    "estaOculto": false,
+    "tipoVerificacion": "TOQUE",
+    "biomaExclusivo": "kioto",
+    "esSecretoBioma": true,
+    "es": {
+      "tituloCorto": "Té en silencio",
+      "titulo": "Beber una taza de té, café o infusión despacio y sin mirar ninguna pantalla",
+      "subcategoria": "Misión de Kioto"
+    },
+    "en": {
+      "tituloCorto": "Silent Tea",
+      "titulo": "Drink a cup of tea or coffee slowly without looking at any screen",
+      "subcategoria": "Kyoto Mission"
+    }
+  },
+  {
+    "id": 108,
+    "tituloCorto": "Ordenar con calma",
+    "titulo": "Despejar una mesa o estantería colocando cada objeto con calma",
+    "categoria": "MEDIO",
+    "subcategoria": "Misión de Kioto",
+    "icono": "cleaning_services",
+    "esFavorito": false,
+    "estaOculto": false,
+    "tipoVerificacion": "TEMPORIZADOR",
+    "biomaExclusivo": "kioto",
+    "esSecretoBioma": true,
+    "es": {
+      "tituloCorto": "Ordenar con calma",
+      "titulo": "Despejar una mesa o estantería colocando cada objeto con calma",
+      "subcategoria": "Misión de Kioto"
+    },
+    "en": {
+      "tituloCorto": "Calm Tidy",
+      "titulo": "Clear a table or shelf while placing each item back calmly",
+      "subcategoria": "Kyoto Mission"
+    }
+  },
+  {
+    "id": 109,
+    "tituloCorto": "Un vaso grande de agua",
+    "titulo": "Parar lo que haces y beber un vaso grande de agua despacio",
+    "categoria": "RAPIDO",
+    "subcategoria": "Misión del Oasis",
+    "icono": "local_drink",
+    "esFavorito": false,
+    "estaOculto": false,
+    "tipoVerificacion": "TOQUE",
+    "biomaExclusivo": "desierto",
+    "esSecretoBioma": true,
+    "es": {
+      "tituloCorto": "Un vaso grande de agua",
+      "titulo": "Parar lo que haces y beber un vaso grande de agua despacio",
+      "subcategoria": "Misión del Oasis"
+    },
+    "en": {
+      "tituloCorto": "Tall Glass of Water",
+      "titulo": "Pause what you're doing and slowly drink a full glass of water",
+      "subcategoria": "Oasis Mission"
+    }
+  },
+  {
+    "id": 110,
+    "tituloCorto": "10 min de calma",
+    "titulo": "Sentarte o tumbarte 10 minutos a descansar con calma",
+    "categoria": "MEDIO",
+    "subcategoria": "Misión del Oasis",
+    "icono": "self_improvement",
+    "esFavorito": false,
+    "estaOculto": false,
+    "tipoVerificacion": "TEMPORIZADOR",
+    "biomaExclusivo": "desierto",
+    "esSecretoBioma": true,
+    "es": {
+      "tituloCorto": "10 min de calma",
+      "titulo": "Sentarte o tumbarte 10 minutos a descansar con calma",
+      "subcategoria": "Misión del Oasis"
+    },
+    "en": {
+      "tituloCorto": "10 Min of Calm",
+      "titulo": "Sit or lie down for 10 minutes to rest calmly",
+      "subcategoria": "Oasis Mission"
+    }
+  },
+  {
+    "id": 111,
+    "tituloCorto": "Estirar manos y muñecas",
+    "titulo": "Soltar la tensión de dedos, muñecas y cuello tras usar teclado o móvil",
+    "categoria": "RAPIDO",
+    "subcategoria": "Misión de Bali",
+    "icono": "pan_tool",
+    "esFavorito": false,
+    "estaOculto": false,
+    "tipoVerificacion": "TOQUE",
+    "biomaExclusivo": "arrozales",
+    "esSecretoBioma": true,
+    "es": {
+      "tituloCorto": "Estirar manos y muñecas",
+      "titulo": "Soltar la tensión de dedos, muñecas y cuello tras usar teclado o móvil",
+      "subcategoria": "Misión de Bali"
+    },
+    "en": {
+      "tituloCorto": "Stretch Hands & Wrists",
+      "titulo": "Release tension from fingers, wrists, and neck after typing or scrolling",
+      "subcategoria": "Bali Mission"
+    }
+  },
+  {
+    "id": 112,
+    "tituloCorto": "Paseo entre verde",
+    "titulo": "Dar un paseo tranquilo de 15 minutos por un parque, jardín o zona con árboles y agua",
+    "categoria": "MEDIO",
+    "subcategoria": "Misión de Bali",
+    "icono": "park",
+    "esFavorito": false,
+    "estaOculto": false,
+    "tipoVerificacion": "TEMPORIZADOR",
+    "biomaExclusivo": "arrozales",
+    "esSecretoBioma": true,
+    "es": {
+      "tituloCorto": "Paseo entre verde",
+      "titulo": "Dar un paseo tranquilo de 15 minutos por un parque, jardín o zona con árboles y agua",
+      "subcategoria": "Misión de Bali"
+    },
+    "en": {
+      "tituloCorto": "Walk Among Greenery",
+      "titulo": "Take an easy 15-minute walk through a park, garden, or area with trees and water",
+      "subcategoria": "Bali Mission"
+    }
+  },
+  {
+    "id": 113,
+    "tituloCorto": "Pausa con bebida caliente",
+    "titulo": "Sostener una bebida caliente 2 minutos disfrutando del aroma sin móvil",
+    "categoria": "RAPIDO",
+    "subcategoria": "Misión de Otoño",
+    "icono": "local_cafe",
+    "esFavorito": false,
+    "estaOculto": false,
+    "tipoVerificacion": "TOQUE",
+    "biomaExclusivo": "otono",
+    "esSecretoBioma": true,
+    "es": {
+      "tituloCorto": "Pausa con bebida caliente",
+      "titulo": "Sostener una bebida caliente 2 minutos disfrutando del aroma sin móvil",
+      "subcategoria": "Misión de Otoño"
+    },
+    "en": {
+      "tituloCorto": "Warm Drink Pause",
+      "titulo": "Hold a warm drink for 2 minutes enjoying its aroma with no phone nearby",
+      "subcategoria": "Autumn Mission"
+    }
+  },
+  {
+    "id": 114,
+    "tituloCorto": "Paseo por parque o barrio",
+    "titulo": "Caminar sin prisa fijándote en los árboles, las hojas y las fachadas",
+    "categoria": "LARGO",
+    "subcategoria": "Misión de Otoño",
+    "icono": "nature",
+    "esFavorito": false,
+    "estaOculto": false,
+    "tipoVerificacion": "PUENTE_ANALOGICO",
+    "franjaHoraria": "dia",
+    "biomaExclusivo": "otono",
+    "esSecretoBioma": true,
+    "es": {
+      "tituloCorto": "Paseo por parque o barrio",
+      "titulo": "Caminar sin prisa fijándote en los árboles, las hojas y las fachadas",
+      "subcategoria": "Misión de Otoño"
+    },
+    "en": {
+      "tituloCorto": "Park or Block Stroll",
+      "titulo": "Walk unhurriedly noticing trees, leaves, and building details",
+      "subcategoria": "Autumn Mission"
+    }
+  },
+  {
+    "id": 115,
+    "tituloCorto": "Bajar las luces",
+    "titulo": "Suavizar las luces de la habitación o el brillo de pantallas y relajar la vista",
+    "categoria": "RAPIDO",
+    "subcategoria": "Misión del Fiordo",
+    "icono": "light_mode",
+    "esFavorito": false,
+    "estaOculto": false,
+    "tipoVerificacion": "TOQUE",
+    "franjaHoraria": "noche",
+    "biomaExclusivo": "fiordo",
+    "esSecretoBioma": true,
+    "es": {
+      "tituloCorto": "Bajar las luces",
+      "titulo": "Suavizar las luces de la habitación o el brillo de pantallas y relajar la vista",
+      "subcategoria": "Misión del Fiordo"
+    },
+    "en": {
+      "tituloCorto": "Dim the Lights",
+      "titulo": "Soften room lighting or screen brightness and let your eyes relax",
+      "subcategoria": "Fjord Mission"
+    }
+  },
+  {
+    "id": 116,
+    "tituloCorto": "Lectura y manta",
+    "titulo": "Dedicar 30 minutos a leer un libro en papel en un sitio cómodo",
+    "categoria": "LARGO",
+    "subcategoria": "Misión del Fiordo",
+    "icono": "menu_book",
+    "esFavorito": false,
+    "estaOculto": false,
+    "tipoVerificacion": "PUENTE_ANALOGICO",
+    "franjaHoraria": "noche",
+    "biomaExclusivo": "fiordo",
+    "esSecretoBioma": true,
+    "es": {
+      "tituloCorto": "Lectura y manta",
+      "titulo": "Dedicar 30 minutos a leer un libro en papel en un sitio cómodo",
+      "subcategoria": "Misión del Fiordo"
+    },
+    "en": {
+      "tituloCorto": "Blanket & Book",
+      "titulo": "Spend 30 minutes reading a paper book somewhere cozy",
+      "subcategoria": "Fjord Mission"
+    }
+  },
+  {
+    "id": 117,
+    "tituloCorto": "Soltar mandíbula y hombros",
+    "titulo": "Aflojar la tensión de la cara, la mandíbula y los hombros durante 1 minuto",
+    "categoria": "RAPIDO",
+    "subcategoria": "Misión del Atolón",
+    "icono": "spa",
+    "esFavorito": false,
+    "estaOculto": false,
+    "tipoVerificacion": "TOQUE",
+    "biomaExclusivo": "atolon",
+    "esSecretoBioma": true,
+    "es": {
+      "tituloCorto": "Soltar mandíbula y hombros",
+      "titulo": "Aflojar la tensión de la cara, la mandíbula y los hombros durante 1 minuto",
+      "subcategoria": "Misión del Atolón"
+    },
+    "en": {
+      "tituloCorto": "Unclench Jaw & Shoulders",
+      "titulo": "Loosen tension in your face, jaw, and shoulders for 1 minute",
+      "subcategoria": "Atoll Mission"
+    }
+  },
+  {
+    "id": 118,
+    "tituloCorto": "Ducha sin prisas",
+    "titulo": "Ducharte sin música ni vídeos, desconectando de verdad",
+    "categoria": "MEDIO",
+    "subcategoria": "Misión del Atolón",
+    "icono": "shower",
+    "esFavorito": false,
+    "estaOculto": false,
+    "tipoVerificacion": "TEMPORIZADOR",
+    "biomaExclusivo": "atolon",
+    "esSecretoBioma": true,
+    "es": {
+      "tituloCorto": "Ducha sin prisas",
+      "titulo": "Ducharte sin música ni vídeos, desconectando de verdad",
+      "subcategoria": "Misión del Atolón"
+    },
+    "en": {
+      "tituloCorto": "Unhurried Shower",
+      "titulo": "Take a shower without music or videos, truly unplugging",
+      "subcategoria": "Atoll Mission"
+    }
+  },
+  {
+    "id": 119,
+    "tituloCorto": "Saborear un bocado",
+    "titulo": "Comer una fruta, café o bocado despacio prestándole atención real",
+    "categoria": "RAPIDO",
+    "subcategoria": "Misión de Toscana",
+    "icono": "restaurant",
+    "esFavorito": false,
+    "estaOculto": false,
+    "tipoVerificacion": "TOQUE",
+    "biomaExclusivo": "toscana",
+    "esSecretoBioma": true,
+    "es": {
+      "tituloCorto": "Saborear un bocado",
+      "titulo": "Comer una fruta, café o bocado despacio prestándole atención real",
+      "subcategoria": "Misión de Toscana"
+    },
+    "en": {
+      "tituloCorto": "Savor One Bite",
+      "titulo": "Eat a piece of fruit, coffee, or snack slowly with real attention",
+      "subcategoria": "Tuscany Mission"
+    }
+  },
+  {
+    "id": 120,
+    "tituloCorto": "Sobremesa sin móviles",
+    "titulo": "Alargar una comida o merienda charlando sin teléfonos sobre la mesa",
+    "categoria": "LARGO",
+    "subcategoria": "Misión de Toscana",
+    "icono": "groups",
+    "esFavorito": false,
+    "estaOculto": false,
+    "tipoVerificacion": "PUENTE_ANALOGICO",
+    "franjaHoraria": "noche",
+    "biomaExclusivo": "toscana",
+    "esSecretoBioma": true,
+    "es": {
+      "tituloCorto": "Sobremesa sin móviles",
+      "titulo": "Alargar una comida o merienda charlando sin teléfonos sobre la mesa",
+      "subcategoria": "Misión de Toscana"
+    },
+    "en": {
+      "tituloCorto": "Phones-Off Table Talk",
+      "titulo": "Stretch out a meal or afternoon coffee chatting with phones off the table",
+      "subcategoria": "Tuscany Mission"
+    }
+  }
+];
+  window.applyCatalogLanguage = function (lang) {
+    const useEn = isEn(lang);
+    (window.BROTE_CATALOG || []).forEach(item => {
+      const pack = useEn ? item.en : item.es;
+      if (pack) {
+        if (pack.tituloCorto) item.tituloCorto = pack.tituloCorto;
+        item.titulo = pack.titulo;
+        item.subcategoria = pack.subcategoria;
+      }
+    });
+  };
+  window.BROTE_CATALOG = RAW_CATALOG.map(item => Object.assign({}, item));
+  window.applyCatalogLanguage();
+})();
