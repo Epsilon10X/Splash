@@ -22,7 +22,7 @@
   <!-- Librería oficial Google Material Web (@material/web) -->
   <script type="module" src="https://esm.run/@material/web/all.js"></script>
 
-  <link rel="stylesheet" href="styles.css?v=34" />
+  <link rel="stylesheet" href="styles.css?v=35" />
   <script>
     (function () {
       try {
@@ -34,7 +34,7 @@
         document.documentElement.dataset.theme = resolved;
         document.documentElement.style.colorScheme = resolved;
         var meta = document.querySelector('meta[name="theme-color"]');
-        if (meta) meta.setAttribute('content', resolved === 'dark' ? '#141714' : '#FAF8F3');
+        if (meta) meta.setAttribute('content', resolved === 'dark' ? '#000000' : '#FAF8F3');
         var lang = localStorage.getItem('splash_lang_v1');
         if (lang === 'en' || lang === 'es') document.documentElement.lang = lang;
         var s = window.innerWidth >= 480 ? Math.min(1, (window.innerWidth - 28) / 436, (window.innerHeight - 28) / 939) : 1;
@@ -866,14 +866,14 @@
   </div>
   </div>
 
-  <script defer src="js/i18n.js?v=34"></script>
-  <script defer src="data/catalog.js?v=34"></script>
-  <script defer src="js/audio.js?v=34"></script>
-  <script defer src="js/mascot.js?v=34"></script>
-  <script defer src="js/social.js?v=34"></script>
-  <script defer src="js/explore-costa.js?v=34"></script>
-  <script defer src="js/world-map.js?v=34"></script>
-  <script defer src="js/app.js?v=34"></script>
+  <script defer src="js/i18n.js?v=35"></script>
+  <script defer src="data/catalog.js?v=35"></script>
+  <script defer src="js/audio.js?v=35"></script>
+  <script defer src="js/mascot.js?v=35"></script>
+  <script defer src="js/social.js?v=35"></script>
+  <script defer src="js/explore-costa.js?v=35"></script>
+  <script defer src="js/world-map.js?v=35"></script>
+  <script defer src="js/app.js?v=35"></script>
   <script>
     if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
       window.addEventListener('load', function () {

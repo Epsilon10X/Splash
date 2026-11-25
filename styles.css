@@ -50,7 +50,7 @@
   --tone-sage-bg: #C9F0D8;
   --tone-sage-fg: #135734;
 
-  --oled-bg: #0B0F0D;
+  --oled-bg: #000000;
 
   /* Formas y movimiento M3 Expressive */
   --md-sys-shape-corner-extra-large: 28px;
@@ -708,17 +708,53 @@ body {
 }
 
 .mascot-progress-bar {
-  height: 5px;
-  background: var(--md-sys-color-surface-container-highest);
+  position: relative;
+  height: 10px;
+  background: transparent;
   border-radius: var(--md-sys-shape-corner-full);
   overflow: hidden;
+  display: flex;
+  align-items: center;
+}
+
+.mascot-progress-bar::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 4px;
+  border-radius: var(--md-sys-shape-corner-full);
+  background: var(--md-sys-color-surface-container-highest);
+  opacity: 0.72;
 }
 
 .mascot-progress-fill {
-  height: 100%;
-  background: var(--md-sys-color-primary);
-  border-radius: var(--md-sys-shape-corner-full);
+  position: relative;
+  z-index: 1;
+  height: 10px;
+  min-width: 10px;
+  background-color: var(--md-sys-color-primary);
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 10' width='24' height='10'%3E%3Cpath d='M0 5 Q6 1 12 5 T24 5' fill='none' stroke='%23000' stroke-width='3.2' stroke-linecap='round'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 10' width='24' height='10'%3E%3Cpath d='M0 5 Q6 1 12 5 T24 5' fill='none' stroke='%23000' stroke-width='3.2' stroke-linecap='round'/%3E%3C/svg%3E");
+  -webkit-mask-repeat: repeat-x;
+  mask-repeat: repeat-x;
+  -webkit-mask-size: 24px 10px;
+  mask-size: 24px 10px;
+  -webkit-mask-position: 0 center;
+  mask-position: 0 center;
+  animation: m3eWaveFlow 1.6s linear infinite;
   transition: width 0.45s var(--m3-emphasized);
+}
+
+@keyframes m3eWaveFlow {
+  0% {
+    -webkit-mask-position: 0 center;
+    mask-position: 0 center;
+  }
+  100% {
+    -webkit-mask-position: 24px center;
+    mask-position: 24px center;
+  }
 }
 
 /* Selector de tiempo M3 Expressive */
@@ -1906,19 +1942,13 @@ body {
   gap: 4px;
   padding: 6px 8px;
   border-radius: var(--md-sys-shape-corner-full);
-  background: linear-gradient(
-    180deg,
-    rgba(255, 255, 255, 0.36) 0%,
-    rgba(255, 253, 248, 0.20) 100%
-  );
-  backdrop-filter: blur(22px) saturate(210%) brightness(1.04);
-  -webkit-backdrop-filter: blur(22px) saturate(210%) brightness(1.04);
-  border: 1px solid rgba(255, 255, 255, 0.72);
+  background: rgba(244, 241, 234, 0.86);
+  backdrop-filter: blur(20px) saturate(140%);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  border: 1px solid rgba(110, 118, 108, 0.16);
   box-shadow:
-    inset 0 1.5px 1px rgba(255, 255, 255, 0.90),
-    inset 0 -1px 2px rgba(40, 38, 34, 0.08),
-    0 14px 36px rgba(40, 38, 34, 0.16),
-    0 3px 10px rgba(40, 38, 34, 0.08);
+    0 6px 20px rgba(24, 28, 25, 0.10),
+    0 1px 3px rgba(24, 28, 25, 0.06);
 }
 
 .ft-active-slider {
@@ -1927,10 +1957,8 @@ body {
   bottom: 6px;
   left: 0;
   border-radius: var(--md-sys-shape-corner-full);
-  background: rgba(196, 238, 212, 0.85);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.65),
-    0 2px 10px rgba(31, 122, 76, 0.16);
+  background: var(--md-sys-color-secondary-container);
+  box-shadow: 0 1px 4px rgba(31, 122, 76, 0.12);
   pointer-events: none;
   z-index: 0;
   will-change: transform, width;
@@ -1941,10 +1969,8 @@ body {
 }
 
 :root[data-theme="dark"] .ft-active-slider {
-  background: rgba(74, 158, 112, 0.28);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.14),
-    0 2px 12px rgba(0, 0, 0, 0.28);
+  background: rgba(114, 212, 152, 0.22);
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.40);
 }
 
 .ft-item {
@@ -2016,23 +2042,17 @@ body {
   height: 52px;
   border-radius: 50%;
   flex-shrink: 0;
-  border: 1px solid rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(110, 118, 108, 0.16);
   display: grid;
   place-items: center;
   cursor: pointer;
-  color: rgba(40, 38, 34, 0.86);
-  background: linear-gradient(
-    180deg,
-    rgba(255, 255, 255, 0.36) 0%,
-    rgba(255, 253, 248, 0.20) 100%
-  );
-  backdrop-filter: blur(22px) saturate(210%) brightness(1.04);
-  -webkit-backdrop-filter: blur(22px) saturate(210%) brightness(1.04);
+  color: var(--md-sys-color-on-surface-variant);
+  background: rgba(244, 241, 234, 0.86);
+  backdrop-filter: blur(20px) saturate(140%);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
   box-shadow:
-    inset 0 1.5px 1px rgba(255, 255, 255, 0.90),
-    inset 0 -1px 2px rgba(40, 38, 34, 0.08),
-    0 14px 36px rgba(40, 38, 34, 0.16),
-    0 3px 10px rgba(40, 38, 34, 0.08);
+    0 6px 20px rgba(24, 28, 25, 0.10),
+    0 1px 3px rgba(24, 28, 25, 0.06);
   transition: transform 0.24s var(--m3-spring), background 0.22s ease, color 0.2s ease, border-color 0.2s ease;
 }
 
@@ -2046,9 +2066,9 @@ body {
 }
 
 .floating-biomes-fab.active {
-  background: rgba(196, 238, 212, 0.88);
-  color: #0B3D24;
-  border-color: rgba(31, 122, 76, 0.35);
+  background: var(--md-sys-color-secondary-container);
+  color: var(--md-sys-color-on-secondary-container);
+  border-color: rgba(31, 122, 76, 0.24);
 }
 
 .floating-biomes-fab.active .material-symbols-rounded {
@@ -3744,13 +3764,13 @@ body.is-beta-off .beta-only-block {
    MODO OSCURO MATERIAL 3 EXPRESSIVE
    ========================================================= */
 :root[data-theme="dark"] {
-  --md-sys-color-background: #111214;
-  --md-sys-color-surface: #111214;
-  --md-sys-color-surface-container-lowest: #191B1E;
-  --md-sys-color-surface-container-low: #1E2024;
-  --md-sys-color-surface-container: #24272C;
-  --md-sys-color-surface-container-high: #2C2F35;
-  --md-sys-color-surface-container-highest: #363A42;
+  --md-sys-color-background: #000000;
+  --md-sys-color-surface: #000000;
+  --md-sys-color-surface-container-lowest: #0D0F12;
+  --md-sys-color-surface-container-low: #121519;
+  --md-sys-color-surface-container: #181B20;
+  --md-sys-color-surface-container-high: #20242B;
+  --md-sys-color-surface-container-highest: #292E37;
 
   --md-sys-color-on-surface: #F2F1EE;
   --md-sys-color-on-surface-variant: #9E9FA5;
@@ -3797,7 +3817,7 @@ body.is-beta-off .beta-only-block {
 }
 
 :root[data-theme="dark"] body {
-  background: #0A0B0D;
+  background: #000000;
 }
 
 :root[data-theme="dark"] .app-shell {
@@ -3843,23 +3863,18 @@ body.is-beta-off .beta-only-block {
 :root[data-theme="dark"] .nav-blur-scrim {
   background: linear-gradient(
     to top,
-    rgba(17, 18, 20, 0.52) 0%,
-    rgba(17, 18, 20, 0) 100%
+    rgba(0, 0, 0, 0.72) 0%,
+    rgba(0, 0, 0, 0) 100%
   );
 }
 
 :root[data-theme="dark"] .floating-toolbar,
 :root[data-theme="dark"] .floating-biomes-fab {
-  background: linear-gradient(
-    180deg,
-    rgba(34, 36, 41, 0.72) 0%,
-    rgba(22, 23, 27, 0.56) 100%
-  );
+  background: rgba(24, 27, 32, 0.86);
   border: 1px solid rgba(255, 255, 255, 0.10);
   box-shadow:
-    inset 0 1px 1px rgba(255, 255, 255, 0.08),
-    inset 0 -1px 2px rgba(0, 0, 0, 0.42),
-    0 14px 36px rgba(0, 0, 0, 0.48);
+    0 8px 24px rgba(0, 0, 0, 0.56),
+    0 2px 6px rgba(0, 0, 0, 0.36);
 }
 
 :root[data-theme="dark"] .ft-item,
@@ -3874,12 +3889,10 @@ body.is-beta-off .beta-only-block {
 }
 
 :root[data-theme="dark"] .floating-biomes-fab.active {
-  background: rgba(78, 168, 118, 0.24);
+  background: rgba(114, 212, 152, 0.22);
   color: #C6EBD5;
-  border-color: rgba(78, 168, 118, 0.34);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.12),
-    0 2px 12px rgba(0, 0, 0, 0.32);
+  border-color: rgba(114, 212, 152, 0.32);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.42);
 }
 
 :root[data-theme="dark"] .mascot-stage,

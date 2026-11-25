@@ -1014,11 +1014,11 @@
     document.documentElement.style.colorScheme = resolved;
     const themeMeta = document.querySelector('meta[name="theme-color"]');
     if (themeMeta) {
-      themeMeta.setAttribute('content', resolved === 'dark' ? '#111214' : '#FAF8F3');
+      themeMeta.setAttribute('content', resolved === 'dark' ? '#000000' : '#FAF8F3');
     }
     try {
       if (window.SplashNative && typeof window.SplashNative.setSystemBarsTheme === 'function') {
-        window.SplashNative.setSystemBarsTheme(resolved === 'dark', resolved === 'dark' ? '#111214' : '#FAF8F3');
+        window.SplashNative.setSystemBarsTheme(resolved === 'dark', resolved === 'dark' ? '#000000' : '#FAF8F3');
       }
     } catch (_) {}
     document.querySelectorAll('#theme-mode-tabs .theme-mode-btn').forEach(btn => {

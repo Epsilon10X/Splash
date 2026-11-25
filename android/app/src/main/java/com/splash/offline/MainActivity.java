@@ -52,7 +52,7 @@ public class MainActivity extends BridgeActivity {
 
         int nightModeFlags = getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK;
         boolean isDark = nightModeFlags == Configuration.UI_MODE_NIGHT_YES;
-        applySystemBarsAppearance(isDark, isDark ? "#111214" : "#FAF8F3");
+        applySystemBarsAppearance(isDark, isDark ? "#000000" : "#FAF8F3");
 
         View content = findViewById(android.R.id.content);
         if (content != null) {
@@ -133,9 +133,9 @@ public class MainActivity extends BridgeActivity {
     private void applySystemBarsAppearance(boolean isDark, String bgHex) {
         int barBgColor;
         try {
-            barBgColor = Color.parseColor(bgHex != null && !bgHex.isEmpty() ? bgHex : (isDark ? "#111214" : "#FAF8F3"));
+            barBgColor = Color.parseColor(bgHex != null && !bgHex.isEmpty() ? bgHex : (isDark ? "#000000" : "#FAF8F3"));
         } catch (IllegalArgumentException e) {
-            barBgColor = isDark ? Color.parseColor("#111214") : Color.parseColor("#FAF8F3");
+            barBgColor = isDark ? Color.parseColor("#000000") : Color.parseColor("#FAF8F3");
         }
 
         Window window = getWindow();
