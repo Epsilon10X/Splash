@@ -15,8 +15,10 @@ import android.graphics.Color;
 import android.os.Build;
 import android.os.Bundle;
 import android.util.Base64;
+import android.view.Display;
 import android.view.View;
 import android.view.Window;
+import android.view.WindowManager;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebView;
 import androidx.core.app.ActivityCompat;
@@ -41,6 +43,7 @@ public class MainActivity extends BridgeActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
+        enableHighRefreshRate();
         createNotificationChannel();
         requestNotificationPermissionIfNeeded();
         SplashNotificationScheduler.scheduleNext(this);
@@ -64,6 +67,39 @@ public class MainActivity extends BridgeActivity {
         if (getBridge() != null && getBridge().getWebView() != null) {
             WebView webView = getBridge().getWebView();
             webView.addJavascriptInterface(new SplashNativeBridge(), "SplashNative");
+        }
+    }
+
+    @SuppressWarnings("deprecation")
+    private void enableHighRefreshRate() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return;
+        Window window = getWindow();
+        if (window == null) return;
+        try {
+            Display display = null;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                display = getDisplay();
+            }
+            if (display == null) {
+                display = getWindowManager().getDefaultDisplay();
+            }
+            if (display == null) return;
+
+            Display.Mode currentMode = display.getMode();
+            Display.Mode[] modes = display.getSupportedModes();
+            Display.Mode bestMode = currentMode;
+            for (Display.Mode mode : modes) {
+                if (mode.getPhysicalWidth() == currentMode.getPhysicalWidth()
+                        && mode.getPhysicalHeight() == currentMode.getPhysicalHeight()
+                        && mode.getRefreshRate() > bestMode.getRefreshRate()) {
+                    bestMode = mode;
+                }
+            }
+            WindowManager.LayoutParams lp = window.getAttributes();
+            lp.preferredDisplayModeId = bestMode.getModeId();
+            lp.preferredRefreshRate = bestMode.getRefreshRate();
+            window.setAttributes(lp);
+        } catch (Throwable ignored) {
         }
     }
 
@@ -232,8 +268,8 @@ public class MainActivity extends BridgeActivity {
                 .putString("levelLabel", levelLabel != null ? levelLabel : "Nv. 1")
                 .putString("streakLabel", streakLabel != null ? streakLabel : "0 días")
                 .putString("nextGoal", nextGoal != null ? nextGoal : "Respirar aire fresco")
-                .apply();
-            refreshAllWidgets();
+                .commit();
+            runOnUiThread(MainActivity.this::refreshAllWidgets);
         }
 
         @JavascriptInterface
@@ -247,6 +283,7 @@ public class MainActivity extends BridgeActivity {
                     File outFile = new File(getFilesDir(), "widget_biome.png");
                     try (FileOutputStream fos = new FileOutputStream(outFile)) {
                         fos.write(pngBytes);
+                        fos.flush();
                     }
                 }
                 SharedPreferences prefs = getSharedPreferences("splash_widget", Context.MODE_PRIVATE);
@@ -259,9 +296,10 @@ public class MainActivity extends BridgeActivity {
                     .putString("goal15Title", obj.optString("goal15Title", "Caminar cuesta arriba"))
                     .putString("weatherLabel", obj.optString("weatherLabel", "Radiante"))
                     .putBoolean("isDark", obj.optBoolean("isDark", false))
+                    .putString("themeMode", obj.optString("themeMode", "auto"))
                     .putBoolean("isEn", obj.optBoolean("isEn", false))
-                    .apply();
-                refreshAllWidgets();
+                    .commit();
+                runOnUiThread(MainActivity.this::refreshAllWidgets);
             } catch (Throwable ignored) {
             }
         }

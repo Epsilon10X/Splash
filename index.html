@@ -22,7 +22,7 @@
   <!-- Librería oficial Google Material Web (@material/web) -->
   <script type="module" src="https://esm.run/@material/web/all.js"></script>
 
-  <link rel="stylesheet" href="styles.css?v=30" />
+  <link rel="stylesheet" href="styles.css?v=32" />
   <script>
     (function () {
       try {
@@ -221,10 +221,10 @@
         <div class="catalog-top">
           <div class="catalog-header-row">
             <h1 data-i18n="catalog_title">Catálogo</h1>
-            <md-filled-tonal-button id="btn-open-create">
-              <span class="material-symbols-rounded" slot="icon">add</span>
+            <button type="button" class="catalog-create-btn" id="btn-open-create">
+              <span class="material-symbols-rounded icon-sm">add</span>
               <span data-i18n="btn_create_custom">Crear propio</span>
-            </md-filled-tonal-button>
+            </button>
           </div>
           <div class="search-wrap">
             <span class="material-symbols-rounded search-icon">search</span>
@@ -251,6 +251,7 @@
           <span class="m3-tonal-pill pill-sage" id="biomes-level-summary">Nv. 1 · 0/80</span>
         </div>
         <div class="biomes-view-switcher" id="biomes-view-switcher" role="tablist" data-i18n-aria="biomes_view_aria" aria-label="Vista de biomas">
+          <span class="biomes-view-slider" id="biomes-view-slider" aria-hidden="true"></span>
           <button type="button" class="biomes-view-btn active" data-view="grid" role="tab" aria-selected="true">
             <span class="material-symbols-rounded icon-xs">grid_view</span>
             <span>Mini</span>
@@ -852,16 +853,26 @@
       </div>
     </div>
   </div>
+
+  <!-- PANTALLA DE CARGA MATERIAL 3 EXPRESSIVE (CAMBIO DE IDIOMA) -->
+  <div class="m3e-lang-overlay hidden" id="m3e-lang-overlay" aria-live="polite" aria-busy="true">
+    <div class="m3e-morph-loader" aria-hidden="true">
+      <svg viewBox="0 0 100 100" class="m3e-morph-svg">
+        <path class="m3e-morph-shape" d="M50,10 C64,10 70,18 76,24 C82,30 90,36 90,50 C90,64 82,70 76,76 C70,82 64,90 50,90 C36,90 30,82 24,76 C18,70 10,64 10,50 C10,36 18,30 24,24 C30,18 36,10 50,10 Z" />
+      </svg>
+    </div>
+    <span class="m3e-lang-label" id="m3e-lang-label">Español</span>
+  </div>
   </div>
 
-  <script defer src="js/i18n.js?v=30"></script>
-  <script defer src="data/catalog.js?v=30"></script>
-  <script defer src="js/audio.js?v=30"></script>
-  <script defer src="js/mascot.js?v=30"></script>
-  <script defer src="js/social.js?v=30"></script>
-  <script defer src="js/explore-costa.js?v=30"></script>
-  <script defer src="js/world-map.js?v=30"></script>
-  <script defer src="js/app.js?v=30"></script>
+  <script defer src="js/i18n.js?v=32"></script>
+  <script defer src="data/catalog.js?v=32"></script>
+  <script defer src="js/audio.js?v=32"></script>
+  <script defer src="js/mascot.js?v=32"></script>
+  <script defer src="js/social.js?v=32"></script>
+  <script defer src="js/explore-costa.js?v=32"></script>
+  <script defer src="js/world-map.js?v=32"></script>
+  <script defer src="js/app.js?v=32"></script>
   <script>
     if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
       window.addEventListener('load', function () {

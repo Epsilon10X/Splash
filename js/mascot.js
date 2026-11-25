@@ -2254,8 +2254,12 @@ window.BroteMascot = (function () {
     const maxDpr = typeof opts.maxDpr === 'number' ? opts.maxDpr : 1.5;
     const dpr = Math.min(window.devicePixelRatio || 1, maxDpr);
     const parent = canvas.parentElement;
-    let w = parent && parent.clientWidth > 10 ? parent.clientWidth : 0;
-    let h = parent && parent.clientHeight > 10 ? parent.clientHeight : 0;
+    let w = typeof opts.width === 'number' && opts.width > 10
+      ? opts.width
+      : (parent && parent.clientWidth > 10 ? parent.clientWidth : 0);
+    let h = typeof opts.height === 'number' && opts.height > 10
+      ? opts.height
+      : (parent && parent.clientHeight > 10 ? parent.clientHeight : 0);
     if (!w || !h) {
       const rect = parent ? parent.getBoundingClientRect() : { width: 350, height: 250 };
       w = rect.width > 10 ? rect.width : 350;

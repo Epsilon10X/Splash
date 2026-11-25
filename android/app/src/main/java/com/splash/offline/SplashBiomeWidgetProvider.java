@@ -23,7 +23,7 @@ public class SplashBiomeWidgetProvider extends AppWidgetProvider {
         String biomeName = prefs.getString("biomeName", "Valle Alpino");
         String levelLabel = prefs.getString("levelLabel", "Nv. 1");
         String streakLabel = prefs.getString("streakLabel", "0 días");
-        boolean isDark = prefs.getBoolean("isDark", false);
+        String themeMode = prefs.getString("themeMode", "auto");
 
         Intent launchIntent = new Intent(context, MainActivity.class);
         launchIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
@@ -36,16 +36,25 @@ public class SplashBiomeWidgetProvider extends AppWidgetProvider {
 
         for (int appWidgetId : appWidgetIds) {
             RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.widget_splash_biome);
-            views.setInt(R.id.widget_biome_root, "setBackgroundResource", isDark ? R.drawable.widget_card_dark : R.drawable.widget_card_light);
+            if ("dark".equals(themeMode)) {
+                views.setInt(R.id.widget_biome_root, "setBackgroundResource", R.drawable.widget_card_dark);
+                views.setTextColor(R.id.widget_biome_name, Color.parseColor("#F1F4F1"));
+                views.setTextColor(R.id.widget_biome_level, Color.parseColor("#7BC47F"));
+            } else if ("light".equals(themeMode)) {
+                views.setInt(R.id.widget_biome_root, "setBackgroundResource", R.drawable.widget_card_light);
+                views.setTextColor(R.id.widget_biome_name, Color.parseColor("#1F2420"));
+                views.setTextColor(R.id.widget_biome_level, Color.parseColor("#1F7A4C"));
+            } else {
+                views.setInt(R.id.widget_biome_root, "setBackgroundResource", R.drawable.widget_card_auto);
+            }
+
             if (biomeBitmap != null) {
                 views.setImageViewBitmap(R.id.widget_biome_2x2_img, biomeBitmap);
             } else {
                 views.setImageViewResource(R.id.widget_biome_2x2_img, R.mipmap.ic_launcher);
             }
             views.setTextViewText(R.id.widget_biome_name, biomeName);
-            views.setTextColor(R.id.widget_biome_name, isDark ? Color.parseColor("#F1F4F1") : Color.parseColor("#1F2420"));
             views.setTextViewText(R.id.widget_biome_level, levelLabel + " · " + streakLabel);
-            views.setTextColor(R.id.widget_biome_level, isDark ? Color.parseColor("#7BC47F") : Color.parseColor("#1F7A4C"));
             views.setOnClickPendingIntent(R.id.widget_biome_root, pendingIntent);
             appWidgetManager.updateAppWidget(appWidgetId, views);
         }

@@ -1,21 +1,21 @@
-const CACHE_NAME = 'splash-v30-cache';
+const CACHE_NAME = 'splash-v32-cache';
 const CORE_ASSETS = [
   './',
   './index.html',
-  './styles.css?v=30',
+  './styles.css?v=32',
   './manifest.webmanifest',
   './icons/icon.svg',
   './icons/icon-192.png',
   './icons/icon-512.png',
   './icons/apple-touch-icon.png',
-  './js/i18n.js?v=30',
-  './data/catalog.js?v=30',
-  './js/audio.js?v=30',
-  './js/mascot.js?v=30',
-  './js/social.js?v=30',
-  './js/explore-costa.js?v=30',
-  './js/world-map.js?v=30',
-  './js/app.js?v=30',
+  './js/i18n.js?v=32',
+  './data/catalog.js?v=32',
+  './js/audio.js?v=32',
+  './js/mascot.js?v=32',
+  './js/social.js?v=32',
+  './js/explore-costa.js?v=32',
+  './js/world-map.js?v=32',
+  './js/app.js?v=32',
   './assets/audio/costa-waves.ogg',
   './assets/audio/bali-water.ogg'
 ];

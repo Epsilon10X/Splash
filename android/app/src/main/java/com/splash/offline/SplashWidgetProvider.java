@@ -38,7 +38,7 @@ public class SplashWidgetProvider extends AppWidgetProvider {
         String biomeShort = prefs.getString("biomeShort", "Valle");
         String goal2Title = prefs.getString("goal2Title", prefs.getString("nextGoal", "Respirar aire fresco"));
         String goal15Title = prefs.getString("goal15Title", "Caminar cuesta arriba");
-        boolean isDark = prefs.getBoolean("isDark", false);
+        String themeMode = prefs.getString("themeMode", "auto");
         boolean isEn = prefs.getBoolean("isEn", false);
 
         Intent launchIntent = new Intent(context, MainActivity.class);
@@ -52,8 +52,16 @@ public class SplashWidgetProvider extends AppWidgetProvider {
 
         for (int appWidgetId : appWidgetIds) {
             RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.widget_splash);
-            views.setInt(R.id.widget_root, "setBackgroundResource", isDark ? R.drawable.widget_card_dark : R.drawable.widget_card_light);
-            views.setInt(R.id.widget_diorama_box, "setBackgroundResource", isDark ? R.drawable.widget_diorama_dark : R.drawable.widget_diorama_light);
+            if ("dark".equals(themeMode)) {
+                views.setInt(R.id.widget_root, "setBackgroundResource", R.drawable.widget_card_dark);
+                views.setInt(R.id.widget_diorama_box, "setBackgroundResource", R.drawable.widget_diorama_dark);
+            } else if ("light".equals(themeMode)) {
+                views.setInt(R.id.widget_root, "setBackgroundResource", R.drawable.widget_card_light);
+                views.setInt(R.id.widget_diorama_box, "setBackgroundResource", R.drawable.widget_diorama_light);
+            } else {
+                views.setInt(R.id.widget_root, "setBackgroundResource", R.drawable.widget_card_auto);
+                views.setInt(R.id.widget_diorama_box, "setBackgroundResource", R.drawable.widget_diorama_auto);
+            }
 
             if (biomeBitmap != null) {
                 views.setImageViewBitmap(R.id.widget_biome_img, biomeBitmap);

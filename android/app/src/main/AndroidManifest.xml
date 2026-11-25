@@ -51,7 +51,7 @@
         <receiver
             android:name=".SplashQuickWidgetProvider"
             android:exported="true"
-            android:label="Splash · Acceso Rápido (4×1)">
+            android:label="Splash · Bloqueo (4×2)">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>

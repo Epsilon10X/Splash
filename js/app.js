@@ -394,6 +394,9 @@
     soundOn: false,
     pointers: new Map(),
     lastPinchDist: null,
+    targetYaw: null,
+    targetPitch: null,
+    prevFrameMs: 0,
     rafId: null
   };
 
@@ -1078,12 +1081,8 @@
         widgetOffscreenCanvas = document.createElement('canvas');
       }
       const off = widgetOffscreenCanvas;
-      off.style.width = '240px';
-      off.style.height = '180px';
-      if (!off.parentElement) {
-        const fakeParent = { clientWidth: 240, clientHeight: 180, getBoundingClientRect: () => ({ width: 240, height: 180 }) };
-        Object.defineProperty(off, 'parentElement', { value: fakeParent, configurable: true });
-      }
+      off.width = 260;
+      off.height = 220;
       window.BroteMascot.renderToCanvas(off, {
         biome: activeId,
         points: pts,
@@ -1092,8 +1091,10 @@
         weatherMode,
         yaw: Math.PI / 4,
         pitch: 0.60,
-        zoom: 1.08,
-        maxDpr: 1
+        zoom: 1.18,
+        maxDpr: 1,
+        width: 260,
+        height: 220
       });
       const dataUrl = off.toDataURL('image/png');
       const idx = dataUrl.indexOf('base64,');
@@ -1108,6 +1109,7 @@
   function syncAndroidWidget() {
     try {
       if (!window.SplashNative) return;
+      const isEnNow = Boolean(window.SplashI18n && window.SplashI18n.isEn());
       const activeId = getActiveBiomeId();
       const bMeta = window.BroteMascot ? window.BroteMascot.getBiome(activeId) : { name: 'Valle Alpino', shortName: 'Valle' };
       const pts = getEffectiveBiomePoints();
@@ -1140,7 +1142,8 @@
           goal15Title,
           weatherLabel: typeof getWeatherLabel === 'function' ? getWeatherLabel(weatherMode, resolvedPhase) : 'Radiante',
           isDark: widgetIsDark,
-          isEn: isEnglish(),
+          themeMode: widgetStudio.themeMode || 'auto',
+          isEn: isEnNow,
           biomePngBase64: pngB64
         };
         window.SplashNative.updateWidgetRich(JSON.stringify(payload));
@@ -1158,6 +1161,7 @@
   function syncAndroidNotificationSchedule() {
     try {
       if (!window.SplashNative || typeof window.SplashNative.syncNotificationSchedule !== 'function') return;
+      const isEnNow = Boolean(window.SplashI18n && window.SplashI18n.isEn());
       const activeId = getActiveBiomeId();
       const notifMeta = BIOME_NOTIFS[activeId] || BIOME_NOTIFS.valle;
       const sched = getEffectiveScheduleForWeek(getBroteWeekKey());
@@ -1183,7 +1187,7 @@
         medioPool: buildWeightedPool('MEDIO', 20),
         quickBadge: notifMeta.quickBadge,
         medioBadge: notifMeta.medioBadge,
-        lang: isEnglish() ? 'en' : 'es'
+        lang: isEnNow ? 'en' : 'es'
       };
       window.SplashNative.syncNotificationSchedule(JSON.stringify(payload));
     } catch (_) {}
@@ -1818,40 +1822,43 @@
     }[ch]));
   }
 
+  let pendingMapRefreshOnViewerClose = false;
+
   function navigateToBiomeFromMap(biomeId) {
     if (!biomeId) return;
     const unlocked = isBiomeUnlocked(biomeId);
+    if (!unlocked) {
+      const bMeta = window.BroteMascot.getBiome(biomeId);
+      const progMeta = window.BroteMascot.getBiome(getCurrentProgressBiomeId());
+      showToast('lock', tx(
+        `${bMeta.name} aún está bloqueado. Completa ${progMeta.name} al Nv. 8 para desbloquearlo.`,
+        `${bMeta.name} is still locked. Complete ${progMeta.name} (Lvl. 8) to unlock it.`
+      ));
+      return;
+    }
+
     const board = document.querySelector('#muro-panel-archipielago .world-map-board');
     const zone = window.BroteWorldMap && typeof window.BroteWorldMap.getZone === 'function'
       ? window.BroteWorldMap.getZone(biomeId)
       : null;
 
     function launchBiomeViewer() {
-      if (unlocked) {
-        state.lumi.biome = biomeId;
-        state.lumi.betaPointsOverride = null;
-        refreshBiomeSuggestionsOnSwitch();
-        saveState();
-        renderAll(false);
-      }
+      state.lumi.biome = biomeId;
+      state.lumi.betaPointsOverride = null;
+      refreshBiomeSuggestionsOnSwitch();
+      saveState();
+      pendingMapRefreshOnViewerClose = true;
+
       const modalEl = document.getElementById('modal-biome-3d');
       if (modalEl) {
         modalEl.classList.remove('is-entering');
         void modalEl.offsetWidth;
         modalEl.classList.add('is-entering');
-        setTimeout(() => modalEl.classList.remove('is-entering'), 440);
+        setTimeout(() => modalEl.classList.remove('is-entering'), 480);
       }
       openBiome3DViewer(biomeId, { fromMapZoom: true });
       if (board) {
-        setTimeout(() => board.classList.remove('is-zooming-in'), 160);
-      }
-      if (!unlocked) {
-        const bMeta = window.BroteMascot.getBiome(biomeId);
-        const progMeta = window.BroteMascot.getBiome(getCurrentProgressBiomeId());
-        showToast('cloud', tx(
-          `${bMeta.name}: aún bajo nubes. Completa ${progMeta.name} al Nv. 8 para despejarlo.`,
-          `${bMeta.name}: still covered by clouds. Complete ${progMeta.name} (Lvl. 8) to unlock.`
-        ));
+        setTimeout(() => board.classList.remove('is-zooming-in'), 500);
       }
     }
 
@@ -1862,7 +1869,7 @@
       board.classList.remove('is-zooming-in');
       void board.offsetWidth;
       board.classList.add('is-zooming-in');
-      setTimeout(launchBiomeViewer, 320);
+      setTimeout(launchBiomeViewer, 240);
     } else {
       launchBiomeViewer();
     }
@@ -2875,18 +2882,29 @@
       const parent = canvas.parentElement;
       const w = Math.round((parent && parent.clientWidth > 10 ? parent.clientWidth : 180));
       const h = Math.round((parent && parent.clientHeight > 10 ? parent.clientHeight : 140));
-      const cacheKey = `${id}|${pts}|${unlocked ? 1 : 0}|${done || (unlocked && isAwake) ? 1 : 0}|${unlocked ? weatherMode : 'clear'}|${theme}|${w}x${h}`;
+      const cachePrefix = `${id}|${pts}|${unlocked ? 1 : 0}|${done || (unlocked && isAwake) ? 1 : 0}|${unlocked ? weatherMode : 'clear'}|${theme}|`;
+      const cacheKey = `${cachePrefix}${w}x${h}`;
 
-      const cached = biomeThumbCache.get(cacheKey);
+      let cached = biomeThumbCache.get(cacheKey);
+      let isExact = Boolean(cached);
+      if (!cached) {
+        for (const [k, val] of biomeThumbCache.entries()) {
+          if (k.startsWith(cachePrefix)) {
+            cached = val;
+            break;
+          }
+        }
+      }
       if (cached) {
-        canvas.width = cached.width;
-        canvas.height = cached.height;
+        canvas.width = isExact ? cached.width : Math.max(1, Math.round(w * 1.15));
+        canvas.height = isExact ? cached.height : Math.max(1, Math.round(h * 1.15));
         const ctx = canvas.getContext('2d');
         if (ctx) {
           ctx.clearRect(0, 0, canvas.width, canvas.height);
-          ctx.drawImage(cached, 0, 0);
+          ctx.drawImage(cached, 0, 0, canvas.width, canvas.height);
         }
-      } else {
+      }
+      if (!isExact) {
         pending.push({
           canvas,
           cacheKey,
@@ -2938,17 +2956,26 @@
     requestAnimationFrame(renderBatch);
   }
 
+  function updateBiomesViewSlider(viewMode) {
+    const slider = document.getElementById('biomes-view-slider');
+    if (!slider) return;
+    const idx = viewMode === 'list' ? 1 : viewMode === 'large' ? 2 : 0;
+    slider.style.transform = `translate3d(calc(${idx * 100}% + ${idx * 6}px), 0, 0)`;
+  }
+
   function renderBiomesStack() {
     const listEl = document.getElementById('biomes-stack-list');
     if (!listEl) return;
 
     const viewMode = (state.ui && state.ui.biomesViewMode) || 'grid';
-    listEl.className = `biomes-stack-list view-${viewMode}`;
+    listEl.classList.remove('view-grid', 'view-list', 'view-large');
+    listEl.classList.add(`view-${viewMode}`);
     document.querySelectorAll('#biomes-view-switcher .biomes-view-btn').forEach(btn => {
       const active = btn.dataset.view === viewMode;
       btn.classList.toggle('active', active);
       btn.setAttribute('aria-selected', active ? 'true' : 'false');
     });
+    updateBiomesViewSlider(viewMode);
 
     const activeId = state.lumi.biome || 'valle';
     const maxPts = window.BroteMascot ? window.BroteMascot.MAX_POINTS : 80;
@@ -3144,7 +3171,12 @@
     if (!viewer3D.open) return;
 
     const now = typeof nowMs === 'number' ? nowMs : performance.now();
+    const dt = viewer3D.prevFrameMs ? Math.min(0.05, (now - viewer3D.prevFrameMs) / 1000) : 0.0083;
+    viewer3D.prevFrameMs = now;
+
+    const isFlyingIn = (viewer3D.targetYaw !== null) || (viewer3D.targetPitch !== null);
     const isMoving =
+      isFlyingIn ||
       viewer3D.pointers.size > 0 ||
       viewer3D.velYaw !== 0 ||
       viewer3D.velPitch !== 0 ||
@@ -3156,16 +3188,36 @@
     }
     viewer3D.lastDrawMs = now;
 
+    const flyK = 1 - Math.exp(-9.5 * dt);
     if (viewer3D.pointers.size === 0) {
-      viewer3D.yaw += viewer3D.velYaw;
-      viewer3D.pitch = clamp(viewer3D.pitch + viewer3D.velPitch, 0.30, 1.28);
-      viewer3D.velYaw *= 0.91;
-      viewer3D.velPitch *= 0.91;
+      if (viewer3D.targetYaw !== null) {
+        viewer3D.yaw += (viewer3D.targetYaw - viewer3D.yaw) * flyK;
+        if (Math.abs(viewer3D.targetYaw - viewer3D.yaw) < 0.002) {
+          viewer3D.yaw = viewer3D.targetYaw;
+          viewer3D.targetYaw = null;
+        }
+      } else {
+        viewer3D.yaw += viewer3D.velYaw * (dt * 60);
+      }
+
+      if (viewer3D.targetPitch !== null) {
+        viewer3D.pitch += (viewer3D.targetPitch - viewer3D.pitch) * flyK;
+        if (Math.abs(viewer3D.targetPitch - viewer3D.pitch) < 0.002) {
+          viewer3D.pitch = viewer3D.targetPitch;
+          viewer3D.targetPitch = null;
+        }
+      } else {
+        viewer3D.pitch = clamp(viewer3D.pitch + viewer3D.velPitch * (dt * 60), 0.30, 1.28);
+      }
+
+      const damp = Math.pow(0.91, dt * 60);
+      viewer3D.velYaw *= damp;
+      viewer3D.velPitch *= damp;
       if (Math.abs(viewer3D.velYaw) < 0.0002) viewer3D.velYaw = 0;
       if (Math.abs(viewer3D.velPitch) < 0.0002) viewer3D.velPitch = 0;
     }
 
-    viewer3D.zoom += (viewer3D.targetZoom - viewer3D.zoom) * 0.18;
+    viewer3D.zoom += (viewer3D.targetZoom - viewer3D.zoom) * flyK;
 
     const viewBiome = viewer3D.biome || (state.lumi && state.lumi.biome) || 'valle';
     const isOverride = state.lumi.betaPointsOverride !== null && typeof state.lumi.betaPointsOverride === 'number';
@@ -3201,9 +3253,17 @@
     viewer3D.soundOn = false;
     viewer3D.velYaw = 0;
     viewer3D.velPitch = 0;
+    viewer3D.prevFrameMs = 0;
     if (opts && opts.fromMapZoom) {
-      viewer3D.zoom = 0.62;
+      viewer3D.zoom = 0.56;
       viewer3D.targetZoom = 1.05;
+      viewer3D.pitch = 1.18;
+      viewer3D.targetPitch = 0.60;
+      viewer3D.yaw = Math.PI / 4 - 0.55;
+      viewer3D.targetYaw = Math.PI / 4;
+    } else {
+      viewer3D.targetYaw = null;
+      viewer3D.targetPitch = null;
     }
     viewer3D.pointers.clear();
     viewer3D.lastPinchDist = null;
@@ -3235,10 +3295,15 @@
       saveState();
     }
     document.getElementById('modal-biome-3d').classList.add('hidden');
-    renderMascot(false);
-    const biomesTab = document.getElementById('tab-biomas');
-    if (biomesTab && biomesTab.classList.contains('active')) {
-      renderBiomesStack();
+    if (pendingMapRefreshOnViewerClose) {
+      pendingMapRefreshOnViewerClose = false;
+      renderAll(false);
+    } else {
+      renderMascot(false);
+      const biomesTab = document.getElementById('tab-biomas');
+      if (biomesTab && biomesTab.classList.contains('active')) {
+        renderBiomesStack();
+      }
     }
   }
 
@@ -3406,7 +3471,12 @@
       const mainEl = document.getElementById('main-content');
       if (mainEl) mainEl.scrollTop = 0;
       if (targetId === 'tab-biomas') {
-        requestAnimationFrame(() => renderBiomesStack());
+        const stackList = document.getElementById('biomes-stack-list');
+        if (stackList && stackList.children.length > 0) {
+          setTimeout(() => renderBiomesStackCanvases(), 110);
+        } else {
+          setTimeout(() => renderBiomesStack(), 90);
+        }
       } else {
         biomeStackRenderToken++;
         if (targetId === 'tab-hoy') {
@@ -3457,10 +3527,34 @@
       viewSwitcher.addEventListener('click', (e) => {
         const btn = e.target.closest('.biomes-view-btn');
         if (!btn) return;
+        const nextView = btn.dataset.view || 'grid';
+        const curView = (state.ui && state.ui.biomesViewMode) || 'grid';
+        if (nextView === curView) return;
         if (!state.ui) state.ui = { biomesViewMode: 'grid', themeMode: 'system' };
-        state.ui.biomesViewMode = btn.dataset.view || 'grid';
+        state.ui.biomesViewMode = nextView;
         saveState();
-        renderBiomesStack();
+
+        document.querySelectorAll('#biomes-view-switcher .biomes-view-btn').forEach(b => {
+          const active = b.dataset.view === nextView;
+          b.classList.toggle('active', active);
+          b.setAttribute('aria-selected', active ? 'true' : 'false');
+        });
+        updateBiomesViewSlider(nextView);
+
+        const listEl = document.getElementById('biomes-stack-list');
+        if (listEl) {
+          listEl.classList.add('is-switching-view');
+          setTimeout(() => {
+            renderBiomesStack();
+            requestAnimationFrame(() => {
+              requestAnimationFrame(() => {
+                listEl.classList.remove('is-switching-view');
+              });
+            });
+          }, 150);
+        } else {
+          renderBiomesStack();
+        }
       });
     }
 
@@ -3531,6 +3625,8 @@
       viewer3D.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
       viewer3D.velYaw = 0;
       viewer3D.velPitch = 0;
+      viewer3D.targetYaw = null;
+      viewer3D.targetPitch = null;
       if (viewer3D.pointers.size === 2) {
         const pts = Array.from(viewer3D.pointers.values());
         viewer3D.lastPinchDist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
@@ -4057,27 +4153,42 @@
         const btn = e.target.closest('.lang-mode-btn');
         if (!btn) return;
         const nextLang = btn.dataset.langMode === 'en' ? 'en' : 'es';
+        const curLang = (window.SplashI18n && window.SplashI18n.getLang()) || ((state.ui && state.ui.lang) || 'es');
+        if (nextLang === curLang) return;
+
         if (!state.ui || typeof state.ui !== 'object') {
           state.ui = { biomesViewMode: 'grid', themeMode: 'system', betaMode: true, lang: nextLang };
         } else {
           state.ui.lang = nextLang;
         }
-        const shell = document.querySelector('.app-shell');
-        if (shell) shell.classList.add('is-lang-fading');
+
+        const overlay = document.getElementById('m3e-lang-overlay');
+        const label = document.getElementById('m3e-lang-label');
+        if (label) {
+          label.textContent = nextLang === 'en' ? 'Switching to English...' : 'Cambiando a Español...';
+        }
+        if (overlay) {
+          overlay.classList.remove('hidden');
+          void overlay.offsetWidth;
+          overlay.classList.add('is-visible');
+        }
+
         setTimeout(() => {
           syncAllModulesLanguage(nextLang);
           saveState();
           renderAll(false);
           renderNotifSchedule();
           if (viewer3D.open) updateViewerUI();
-          requestAnimationFrame(() => {
-            updateNavSlider(currentTabId);
-            requestAnimationFrame(() => {
-              if (shell) shell.classList.remove('is-lang-fading');
-            });
-          });
-          showToast('translate', nextLang === 'en' ? 'Language switched to English.' : 'Idioma cambiado a Español.');
-        }, 200);
+          requestAnimationFrame(() => updateNavSlider(currentTabId));
+
+          setTimeout(() => {
+            if (overlay) {
+              overlay.classList.remove('is-visible');
+              setTimeout(() => overlay.classList.add('hidden'), 240);
+            }
+            showToast('translate', nextLang === 'en' ? 'Language switched to English.' : 'Idioma cambiado a Español.');
+          }, 340);
+        }, 220);
       });
     }
 

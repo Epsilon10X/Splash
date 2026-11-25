@@ -128,12 +128,59 @@ body {
   position: relative;
   box-shadow: 0 24px 60px rgba(40, 38, 34, 0.12);
   overflow: hidden;
-  transition: opacity 0.22s cubic-bezier(0.22, 1, 0.36, 1), transform 0.24s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.app-shell.is-lang-fading {
-  opacity: 0.12;
-  transform: translate3d(0, 6px, 0) scale(0.985);
+.m3e-lang-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  background: var(--md-sys-color-surface);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.m3e-lang-overlay.is-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.m3e-morph-loader {
+  width: 68px;
+  height: 68px;
+  display: grid;
+  place-items: center;
+}
+
+.m3e-morph-svg {
+  width: 100%;
+  height: 100%;
+  will-change: transform;
+  animation: m3eExpressiveSpin 1.35s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+}
+
+.m3e-morph-shape {
+  fill: var(--md-sys-color-primary);
+}
+
+.m3e-lang-label {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--md-sys-color-on-surface-variant);
+  letter-spacing: -0.01em;
+}
+
+@keyframes m3eExpressiveSpin {
+  0%   { transform: rotate(0deg) scale(1); }
+  25%  { transform: rotate(90deg) scale(1.12, 0.92); }
+  50%  { transform: rotate(180deg) scale(0.94, 1.08); }
+  75%  { transform: rotate(270deg) scale(1.10, 0.94); }
+  100% { transform: rotate(360deg) scale(1); }
 }
 
 @media (min-width: 480px) {
@@ -439,6 +486,16 @@ body {
   animation: tabSlideFromLeft 0.36s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
+#tab-biomas.slide-from-right,
+#tab-biomas.active {
+  animation: biomesTabEnter 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes biomesTabEnter {
+  from { opacity: 0; transform: translate3d(0, 18px, 0) scale(0.97); }
+  to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+}
+
 @keyframes tabSlideFromRight {
   from { opacity: 0; transform: translate3d(42px, 0, 0); }
   to { opacity: 1; transform: translate3d(0, 0, 0); }
@@ -450,26 +507,25 @@ body {
 }
 
 .world-map-board {
-  will-change: transform, opacity, filter;
+  transform-style: preserve-3d;
+  will-change: transform, opacity;
   transition:
-    transform 0.46s cubic-bezier(0.32, 0, 0.20, 1),
-    opacity 0.38s ease,
-    filter 0.38s ease;
+    transform 0.44s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.36s ease;
 }
 
 .world-map-board.is-zooming-in {
-  transform: scale(3.6) translateZ(0);
-  filter: blur(3px);
+  transform: rotateX(36deg) scale3d(3.2, 3.2, 1) translate3d(0, 0, 140px);
   opacity: 0;
 }
 
 .modal-biome-3d.is-entering {
-  animation: biomeZoomEnter 0.42s cubic-bezier(0.22, 1, 0.36, 1);
+  animation: biome3DDiveIn 0.46s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-@keyframes biomeZoomEnter {
-  from { opacity: 0; transform: scale(0.76) translateZ(0); }
-  to { opacity: 1; transform: scale(1) translateZ(0); }
+@keyframes biome3DDiveIn {
+  from { opacity: 0; transform: perspective(950px) rotateX(18deg) scale3d(0.84, 0.84, 1); }
+  to { opacity: 1; transform: perspective(950px) rotateX(0deg) scale3d(1, 1, 1); }
 }
 
 @keyframes modalOverlayIn {
@@ -1552,6 +1608,35 @@ body {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 12px;
+  gap: 10px;
+}
+
+.catalog-create-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 9px 16px 9px 13px;
+  border: none;
+  border-radius: var(--md-sys-shape-corner-full);
+  background: var(--md-sys-color-primary-container);
+  color: var(--md-sys-color-on-primary-container);
+  font-family: inherit;
+  font-size: 0.84rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: transform 0.16s var(--m3-spring), filter 0.16s ease;
+}
+
+.catalog-create-btn:active {
+  transform: scale(0.95);
+}
+
+.catalog-create-btn .material-symbols-rounded {
+  font-size: 18px;
 }
 
 .search-wrap {
@@ -2867,6 +2952,7 @@ body {
 }
 
 .biomes-view-switcher {
+  position: relative;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 6px;
@@ -2876,7 +2962,24 @@ body {
   margin-bottom: 12px;
 }
 
+.biomes-view-slider {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: 4px;
+  width: calc((100% - 20px) / 3);
+  border-radius: var(--md-sys-shape-corner-full);
+  background: #FFFFFF;
+  box-shadow: 0 2px 8px rgba(40, 38, 34, 0.10);
+  pointer-events: none;
+  z-index: 0;
+  will-change: transform;
+  transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
 .biomes-view-btn {
+  position: relative;
+  z-index: 1;
   border: none;
   background: transparent;
   display: inline-flex;
@@ -2890,7 +2993,7 @@ body {
   font-weight: 700;
   color: var(--md-sys-color-on-surface-variant);
   cursor: pointer;
-  transition: background 0.2s ease, color 0.2s ease, transform 0.16s var(--m3-spring);
+  transition: color 0.2s ease, transform 0.16s var(--m3-spring);
 }
 
 .biomes-view-btn:active {
@@ -2898,9 +3001,9 @@ body {
 }
 
 .biomes-view-btn.active {
-  background: #FFFFFF;
+  background: transparent;
   color: var(--md-sys-color-on-surface);
-  box-shadow: 0 2px 6px rgba(40, 38, 34, 0.08);
+  box-shadow: none;
 }
 
 .biomes-stack-list {
@@ -2908,6 +3011,15 @@ body {
   flex-direction: column;
   gap: 12px;
   padding-bottom: 14px;
+  will-change: transform, opacity;
+  transition:
+    opacity 0.18s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.biomes-stack-list.is-switching-view {
+  opacity: 0;
+  transform: translate3d(0, 8px, 0) scale(0.975);
 }
 
 .biome-stack-card {
@@ -3923,12 +4035,22 @@ body.is-beta-off .beta-only-block {
   border-color: rgba(255, 255, 255, 0.08);
 }
 
+:root[data-theme="dark"] .biomes-view-slider {
+  background: var(--md-sys-color-surface-container-highest);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.32);
+}
+
 :root[data-theme="dark"] .theme-mode-btn.active,
-:root[data-theme="dark"] .sched-mode-btn.active,
-:root[data-theme="dark"] .biomes-view-btn.active {
+:root[data-theme="dark"] .sched-mode-btn.active {
   background: var(--md-sys-color-surface-container-highest);
   color: var(--md-sys-color-on-surface);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.32);
+}
+
+:root[data-theme="dark"] .biomes-view-btn.active {
+  background: transparent;
+  color: var(--md-sys-color-on-surface);
+  box-shadow: none;
 }
 
 :root[data-theme="dark"] .sched-day-pill {
@@ -4502,6 +4624,8 @@ body.is-beta-off .beta-only-block {
   position: relative;
   height: 432px;
   overflow: auto;
+  perspective: 950px;
+  perspective-origin: 50% 50%;
   border-radius: 26px;
   background: radial-gradient(circle at 48% 42%, #74C4D8 0%, #4BA4BE 58%, #3487A5 100%);
   border: 1.5px solid rgba(255, 255, 255, 0.34);

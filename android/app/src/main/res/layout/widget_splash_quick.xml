@@ -3,69 +3,81 @@
     android:id="@+id/widget_quick_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/widget_quick_bg_light"
+    android:background="@drawable/widget_quick_bg_auto"
     android:gravity="center"
     android:orientation="vertical"
-    android:padding="10dp">
+    android:padding="14dp">
+
+    <TextClock
+        android:id="@+id/widget_lock_clock"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:format12Hour="h:mm"
+        android:format24Hour="HH:mm"
+        android:includeFontPadding="false"
+        android:textColor="#FFFFFF"
+        android:textSize="40sp"
+        android:textStyle="bold" />
 
     <TextView
         android:id="@+id/widget_quick_sub"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
         android:background="@drawable/widget_quick_badge"
         android:ellipsize="end"
         android:maxLines="1"
-        android:paddingLeft="10dp"
-        android:paddingTop="3dp"
-        android:paddingRight="10dp"
-        android:paddingBottom="3dp"
-        android:text="Valle Nv. 1 · Radiante"
+        android:paddingLeft="12dp"
+        android:paddingTop="4dp"
+        android:paddingRight="12dp"
+        android:paddingBottom="4dp"
+        android:text="Valle Nv. 1 · Atardecer"
         android:textColor="#FFFFFF"
-        android:textSize="11sp"
+        android:textSize="12sp"
         android:textStyle="bold" />
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="7dp"
+        android:layout_marginTop="12dp"
         android:gravity="center"
         android:orientation="horizontal">
 
         <TextView
             android:id="@+id/widget_quick_btn_2m"
             android:layout_width="0dp"
-            android:layout_height="30dp"
+            android:layout_height="34dp"
             android:layout_weight="1"
-            android:background="@drawable/widget_quick_chip_light"
+            android:background="@drawable/widget_quick_chip_auto"
             android:gravity="center"
             android:text="2 min"
-            android:textColor="#282622"
+            android:textColor="@color/widget_chip_text"
             android:textSize="12sp"
             android:textStyle="bold" />
 
         <TextView
             android:id="@+id/widget_quick_btn_15m"
             android:layout_width="0dp"
-            android:layout_height="30dp"
-            android:layout_marginStart="6dp"
+            android:layout_height="34dp"
+            android:layout_marginStart="8dp"
             android:layout_weight="1"
-            android:background="@drawable/widget_quick_chip_light"
+            android:background="@drawable/widget_quick_chip_auto"
             android:gravity="center"
             android:text="15 min"
-            android:textColor="#282622"
+            android:textColor="@color/widget_chip_text"
             android:textSize="12sp"
             android:textStyle="bold" />
 
         <TextView
             android:id="@+id/widget_quick_btn_wk"
             android:layout_width="0dp"
-            android:layout_height="30dp"
-            android:layout_marginStart="6dp"
+            android:layout_height="34dp"
+            android:layout_marginStart="8dp"
             android:layout_weight="1"
-            android:background="@drawable/widget_quick_chip_light"
+            android:background="@drawable/widget_quick_chip_auto"
             android:gravity="center"
             android:text="Semanal"
-            android:textColor="#282622"
+            android:textColor="@color/widget_chip_text"
             android:textSize="12sp"
             android:textStyle="bold" />
     </LinearLayout>
