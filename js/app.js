@@ -1208,7 +1208,23 @@
     }
   }
 
-  function renderMascot(celebrate = false) {
+  function setOledSystemBars(enabled) {
+    try {
+      if (enabled) {
+        const themeMeta = document.querySelector('meta[name="theme-color"]');
+        if (themeMeta) themeMeta.setAttribute('content', '#000000');
+        if (window.SplashNative && typeof window.SplashNative.setSystemBarsTheme === 'function') {
+          window.SplashNative.setSystemBarsTheme(true, '#000000');
+        }
+      } else {
+        applyThemeMode();
+      }
+    } catch (_) {}
+  }
+
+  let lastDioramaRenderKey = '';
+
+  function renderMascot(celebrate = false, forceRedraw = false) {
     const points = getEffectiveBiomePoints();
     const stage = window.BroteMascot.getLevelFromPoints(points);
     const sub = window.BroteMascot.getSubProgress(points);
@@ -1220,14 +1236,19 @@
     const biome = window.BroteMascot.getBiome(biomeId);
     const weatherMode = getLiveWeatherMode();
     const timePhase = window.BroteMascot.getTimeOfDayPhase();
+    const theme = document.documentElement.dataset.theme || 'light';
 
-    window.BroteMascot.renderDiorama({
-      biome: biomeId,
-      points,
-      isAwake,
-      weatherMode,
-      timePhase
-    });
+    const dioramaKey = `${biomeId}|${points}|${isAwake ? 1 : 0}|${weatherMode}|${timePhase}|${theme}`;
+    if (forceRedraw || celebrate || dioramaKey !== lastDioramaRenderKey) {
+      lastDioramaRenderKey = dioramaKey;
+      window.BroteMascot.renderDiorama({
+        biome: biomeId,
+        points,
+        isAwake,
+        weatherMode,
+        timePhase
+      });
+    }
 
     const wrap = document.getElementById('mascot-diorama-wrap');
     if (celebrate && wrap) {
@@ -1695,6 +1716,7 @@
     }, 1000);
 
     document.getElementById('modal-analog').classList.remove('hidden');
+    setOledSystemBars(true);
   }
 
   function openWidgetOledTimer(minutes) {
@@ -1741,6 +1763,7 @@
     updateAnalogTimerUI();
     updateAnalogSoundBtn();
     document.getElementById('modal-analog').classList.remove('hidden');
+    setOledSystemBars(true);
   }
 
   function updateAnalogTimerUI() {
@@ -1758,6 +1781,7 @@
     window.BroteAudio.stopAmbient();
     updateAnalogSoundBtn();
     document.getElementById('modal-analog').classList.add('hidden');
+    setOledSystemBars(false);
   }
 
   document.addEventListener('visibilitychange', () => {
@@ -3530,6 +3554,12 @@
       const dirClass = nextIdx > prevIdx ? 'slide-from-right' : nextIdx < prevIdx ? 'slide-from-left' : '';
       currentTabId = targetId;
 
+      if (targetId === 'tab-catalogo' && catalogDirty) {
+        renderCatalog();
+      } else if (targetId === 'tab-hoy') {
+        renderMascot(false);
+      }
+
       document.querySelectorAll('.ft-nav-btn').forEach(b => {
         b.classList.toggle('active', b.dataset.tab === targetId);
       });
@@ -3556,12 +3586,8 @@
         }
       } else {
         biomeStackRenderToken++;
-        if (targetId === 'tab-hoy') {
-          requestAnimationFrame(() => renderMascot(false));
-        } else if (targetId === 'tab-muro') {
+        if (targetId === 'tab-muro') {
           requestAnimationFrame(() => renderMuroSocialViews());
-        } else if (targetId === 'tab-catalogo' && catalogDirty) {
-          requestAnimationFrame(() => renderCatalog());
         }
       }
     }
@@ -4777,7 +4803,7 @@
     window.addEventListener('resize', () => {
       updatePixelPreviewScale();
       window.BroteMascot.resizeCanvas();
-      renderMascot(false);
+      renderMascot(false, true);
       const biomesTab = document.getElementById('tab-biomas');
       if (biomesTab && biomesTab.classList.contains('active')) {
         renderBiomesStackCanvases();
@@ -4785,6 +4811,9 @@
     });
     bindEvents();
     renderAll(false);
+    setTimeout(() => {
+      if (catalogDirty) renderCatalog();
+    }, 350);
 
     if (beRealIntervalId) clearInterval(beRealIntervalId);
     beRealIntervalId = setInterval(updateBeRealCountdown, 1000);
