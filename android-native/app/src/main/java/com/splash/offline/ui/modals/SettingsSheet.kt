@@ -71,6 +71,7 @@ import com.splash.offline.SplashNotificationScheduler
 import com.splash.offline.SplashQuickWidgetProvider
 import com.splash.offline.SplashWidgetProvider
 import com.splash.offline.data.AppLanguage
+import com.splash.offline.data.GoalCategory
 import com.splash.offline.data.SplashStrings
 import com.splash.offline.data.SplashUiState
 import com.splash.offline.data.ThemeMode
@@ -89,8 +90,10 @@ fun SettingsSheet(
     onSelectWidgetTheme: (WidgetThemePref) -> Unit,
     onToggleDayHour: (String, Int) -> Unit,
     onApplyPreset: (String) -> Unit,
+    onSetDailyNotifCount: (Int) -> Unit = {},
     onToggleBeta: (Boolean) -> Unit,
     onCompleteBiomeBeta: () -> Unit,
+    onPreviewBiomeCelebration: (GoalCategory) -> Unit = {},
     onResetProgress: () -> Unit,
     onShowToast: (String) -> Unit
 ) {
@@ -146,7 +149,7 @@ fun SettingsSheet(
                         style = MaterialTheme.typography.headlineSmall
                     )
                     Text(
-                        text = "Splash v2.0.17 · Material 3 Expressive 1.5",
+                        text = "Splash v2.0.24 · Material 3 Expressive 1.5",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -276,6 +279,9 @@ fun SettingsSheet(
                         onValueChange = { nameInput = it },
                         singleLine = true,
                         shape = RoundedCornerShape(16.dp),
+                        placeholder = {
+                            Text(SplashStrings.t(state.lang, "Tu nombre (opcional)", "Your name (optional)"))
+                        },
                         modifier = Modifier.weight(1f)
                     )
                     Button(
@@ -331,7 +337,7 @@ fun SettingsSheet(
             }
 
             // Notification Scheduler
-            SettingSection(title = SplashStrings.t(state.lang, "Notificaciones rápidas", "Quick notifications")) {
+            SettingSection(title = SplashStrings.t(state.lang, "Notificaciones Flash", "Flash notifications")) {
                 Text(
                     text = SplashStrings.t(
                         state.lang,
@@ -402,7 +408,32 @@ fun SettingsSheet(
                     }
                 }
 
-                val nextLabel = remember(state.notifSchedule, state.lang) {
+                Text(
+                    text = SplashStrings.t(
+                        state.lang,
+                        "Máximo de avisos al día: ${state.dailyNotifCount} (recibirás entre 2 y ${state.dailyNotifCount} al azar)",
+                        "Max notifications per day: ${state.dailyNotifCount} (random 2–${state.dailyNotifCount})"
+                    ),
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    (2..7).forEach { count ->
+                        ToggleButton(
+                            checked = state.dailyNotifCount == count,
+                            onCheckedChange = { onSetDailyNotifCount(count) },
+                            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 6.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text(count.toString(), maxLines = 1)
+                        }
+                    }
+                }
+
+                val nextLabel = remember(state.notifSchedule, state.dailyNotifCount, state.lang) {
                     SplashNotificationScheduler.getNextScheduledLabel(context, state.lang == AppLanguage.EN)
                 }
                 Text(
@@ -412,22 +443,24 @@ fun SettingsSheet(
                     fontWeight = FontWeight.SemiBold
                 )
 
-                FilledTonalButton(
-                    onClick = {
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-                            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
-                        ) {
-                            notifPermLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                        } else {
-                            fireTestNotification()
-                        }
-                    },
-                    shape = CircleShape,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Icon(Icons.Rounded.Notifications, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text(SplashStrings.t(state.lang, "Probar notificación aleatoria ahora", "Test random notification now"))
+                if (state.betaMode) {
+                    FilledTonalButton(
+                        onClick = {
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                                ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+                            ) {
+                                notifPermLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                            } else {
+                                fireTestNotification()
+                            }
+                        },
+                        shape = CircleShape,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Rounded.Notifications, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text(SplashStrings.t(state.lang, "Probar notificación aleatoria ahora", "Test random notification now"))
+                    }
                 }
             }
 
@@ -435,7 +468,7 @@ fun SettingsSheet(
             SettingSection(title = SplashStrings.t(state.lang, "Widgets de inicio", "Home Widgets")) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                     listOf(
-                        0 to SplashStrings.t(state.lang, "4×2 Retos", "4×2 Goals"),
+                        0 to "4×2 Flash",
                         1 to SplashStrings.t(state.lang, "2×2 Bioma", "2×2 Biome"),
                         2 to SplashStrings.t(state.lang, "Temporizador", "Timer")
                     ).forEach { (idx, lbl) ->
@@ -521,7 +554,39 @@ fun SettingsSheet(
                         onClick = onCompleteBiomeBeta,
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text(SplashStrings.t(state.lang, "Completar bioma actual (80/80)", "Complete current biome (80/80)"))
+                        Text(SplashStrings.t(state.lang, "Completar bioma actual (100/100)", "Complete current biome (100/100)"))
+                    }
+
+                    Text(
+                        text = SplashStrings.t(state.lang, "Probar animaciones de crecimiento en Hoy", "Test biome growth animations on Today"),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        FilledTonalButton(
+                            onClick = { onPreviewBiomeCelebration(GoalCategory.RAPIDO) },
+                            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 8.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("Flash (+2)", maxLines = 1)
+                        }
+                        FilledTonalButton(
+                            onClick = { onPreviewBiomeCelebration(GoalCategory.MEDIO) },
+                            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 8.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text(SplashStrings.t(state.lang, "Medio (+3)", "Med (+3)"), maxLines = 1)
+                        }
+                        FilledTonalButton(
+                            onClick = { onPreviewBiomeCelebration(GoalCategory.LARGO) },
+                            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 8.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text(SplashStrings.t(state.lang, "Semanal (+4)", "Week (+4)"), maxLines = 1)
+                        }
                     }
                 }
 

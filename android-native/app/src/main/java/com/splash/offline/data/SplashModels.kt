@@ -109,7 +109,8 @@ data class CompletionLog(
     val category: GoalCategory,
     val biomeId: String,
     val photoPath: String? = null,
-    val earnedXp: Int = 0
+    val earnedXp: Int = 0,
+    val note: String? = null
 )
 
 data class DaySchedule(
@@ -129,14 +130,39 @@ data class ActiveSession(
     val isFinished: Boolean = false,
     val isBiomeMission: Boolean = false,
     val isExtra: Boolean = false,
-    val isFromWidget: Boolean = false
+    val isFromWidget: Boolean = false,
+    val isFromNotification: Boolean = false
 )
 
 data class PendingCameraGoal(
     val goal: GoalItem? = null,
     val isBiomeMission: Boolean = false,
     val isExtra: Boolean = false,
-    val isStandaloneMemory: Boolean = false
+    val isStandaloneMemory: Boolean = false,
+    val isForPendingNote: Boolean = false
+)
+
+data class PendingNoteCompletion(
+    val goal: GoalItem,
+    val isBiomeMission: Boolean = false,
+    val isExtra: Boolean = false,
+    val isFromNotification: Boolean = false,
+    val photoPath: String? = null
+)
+
+data class BiomeCelebrationEvent(
+    val id: Long,
+    val category: GoalCategory,
+    val earnedXp: Int,
+    val isSurprise: Boolean,
+    val prevXp: Int,
+    val nextXp: Int,
+    val biomeUnlocked: Boolean = false,
+    val completedBiomeId: String? = null,
+    val completedBiomeName: String? = null,
+    val nextBiomeId: String? = null,
+    val nextBiomeIndex: Int? = null,
+    val nextBiomeName: String? = null
 )
 
 data class SplashUiState(
@@ -144,7 +170,7 @@ data class SplashUiState(
     val isLanguageSwitching: Boolean = false,
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val widgetThemePref: WidgetThemePref = WidgetThemePref.AUTO,
-    val userName: String = "Explorador",
+    val userName: String = "",
     val activeTab: AppTab = AppTab.HOY,
     val timeBucket: TimeBucket = TimeBucket.QUICK_2M,
     val wallSubTab: WallSubTab = WallSubTab.MY_WALL,
@@ -161,11 +187,16 @@ data class SplashUiState(
     val quickUsedToday: Int = 0,
     val mediumUsedToday: Int = 0,
     val weeklyUsedThisWeek: Int = 0,
+    val surpriseUsedToday: Int = 0,
     val currentQuickIds: Pair<Int, Int> = 1 to 101,
     val currentMediumIds: Pair<Int, Int> = 21 to 102,
     val currentWeeklyIds: List<Int> = listOf(38, 39, 40),
     val extraQuickGoalId: Int? = null,
     val extraMediumGoalId: Int? = null,
+    val extraWeeklyGoalId: Int? = null,
+    val notifiedGoalId: Int? = null,
+    val biomeCelebration: BiomeCelebrationEvent? = null,
+    val dailyNotifCount: Int = 4,
     val savedTimerRemainingSec: Map<String, Int> = emptyMap(),
     val catalog: List<GoalItem> = emptyList(),
     val completions: List<CompletionLog> = emptyList(),
@@ -180,6 +211,7 @@ data class SplashUiState(
     val isFeedbackOpen: Boolean = false,
     val isCreateGoalOpen: Boolean = false,
     val pendingCameraGoal: PendingCameraGoal? = null,
+    val pendingNoteCompletion: PendingNoteCompletion? = null,
     val isAmbientAudioPlaying: Boolean = false,
     val dioramaNightPreview: Boolean = false,
     val toastMessage: String? = null
@@ -188,17 +220,18 @@ data class SplashUiState(
         get() = SplashCatalogData.BIOMES.getOrElse(activeBiomeIndex) { SplashCatalogData.BIOMES.first() }
 
     val activeBiomeXp: Int
-        get() = (biomeXpById[activeBiome.id] ?: 0).coerceIn(0, 80)
+        get() = (biomeXpById[activeBiome.id] ?: 0).coerceIn(0, SplashCatalogData.MAX_BIOME_XP)
 
     val effectiveBiomeLevel: Int
         get() = betaStageOverride?.coerceIn(1, 8)
-            ?: ((activeBiomeXp / 10) + 1).coerceIn(1, 8)
+            ?: ((activeBiomeXp * 7) / SplashCatalogData.MAX_BIOME_XP + 1).coerceIn(1, 8)
 
     val streakDays: Int
         get() = completions.map { it.dateIso }.distinct().size
 }
 
 object SplashCatalogData {
+    const val MAX_BIOME_XP = 100
     val BIOMES: List<BiomeDef> = listOf(
         BiomeDef(
             id = "valle",

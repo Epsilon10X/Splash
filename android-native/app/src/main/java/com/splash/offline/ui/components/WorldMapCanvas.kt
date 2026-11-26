@@ -41,10 +41,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.CenterFocusStrong
 import androidx.compose.material.icons.rounded.Explore
-import androidx.compose.material.icons.rounded.Remove
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
@@ -733,8 +731,8 @@ fun WorldMapCanvas(
                 Text(
                     text = SplashStrings.t(
                         lang,
-                        "Pellizca o usa + / - · Toca un bioma para entrar",
-                        "Pinch or use + / - · Tap a biome to enter"
+                        "Pellizca para ampliar · Toca un bioma para entrar",
+                        "Pinch to zoom · Tap a biome to enter"
                     ),
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.SemiBold,
@@ -743,7 +741,7 @@ fun WorldMapCanvas(
             }
         }
 
-        // Bottom-right compact zoom controls (+ / - / reset)
+        // Bottom-right reset zoom button when zoomed in
         Column(
             verticalArrangement = Arrangement.spacedBy(6.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -769,36 +767,6 @@ fun WorldMapCanvas(
                         modifier = Modifier.size(18.dp)
                     )
                 }
-            }
-
-            FilledTonalIconButton(
-                onClick = { animateZoomTo(zoomAnim.value + 0.55f) },
-                enabled = zoomAnim.value < 3.55f,
-                colors = IconButtonDefaults.filledTonalIconButtonColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerLowest.copy(alpha = 0.92f)
-                ),
-                modifier = Modifier.size(36.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Rounded.Add,
-                    contentDescription = SplashStrings.t(lang, "Ampliar", "Zoom in"),
-                    modifier = Modifier.size(18.dp)
-                )
-            }
-
-            FilledTonalIconButton(
-                onClick = { animateZoomTo(zoomAnim.value - 0.55f) },
-                enabled = zoomAnim.value > 1.05f,
-                colors = IconButtonDefaults.filledTonalIconButtonColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerLowest.copy(alpha = 0.92f)
-                ),
-                modifier = Modifier.size(36.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Rounded.Remove,
-                    contentDescription = SplashStrings.t(lang, "Alejar", "Zoom out"),
-                    modifier = Modifier.size(18.dp)
-                )
             }
         }
     }

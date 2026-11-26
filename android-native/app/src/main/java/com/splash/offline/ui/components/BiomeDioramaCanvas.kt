@@ -1,5 +1,6 @@
 package com.splash.offline.ui.components
 
+import android.util.LruCache
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -7,21 +8,36 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Canvas as ComposeCanvas
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.CanvasDrawScope
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.LayoutDirection
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.cos
@@ -130,6 +146,99 @@ private data class BiomeSceneData(
     val cells: Array<SceneCellData>
 )
 
+private val dioramaThumbCache = object : LruCache<String, ImageBitmap>(24) {}
+
+@Composable
+fun BiomeDioramaThumbnail(
+    biomeId: String,
+    stage: Int,
+    points: Int,
+    modifier: Modifier = Modifier,
+    zoom: Float = 0.98f
+) {
+    BoxWithConstraints(modifier = modifier) {
+        val density = LocalDensity.current
+        val targetW = with(density) { maxWidth.toPx().roundToInt() }.coerceIn(160, 420)
+        val targetH = with(density) { maxHeight.toPx().roundToInt() }.coerceIn(160, 420)
+        val safeStage = stage.coerceIn(1, 8)
+        val safePoints = points.coerceIn(0, 100)
+        val cacheKey = "${biomeId}_${safeStage}_${safePoints}_${targetW}x${targetH}"
+
+        var bitmap by remember(cacheKey) { mutableStateOf(dioramaThumbCache.get(cacheKey)) }
+        LaunchedEffect(cacheKey) {
+            if (bitmap == null) {
+                val rendered = withContext(Dispatchers.Default) {
+                    renderBiomeDioramaBitmap(
+                        biomeId = biomeId,
+                        stage = safeStage,
+                        points = safePoints,
+                        widthPx = targetW,
+                        heightPx = targetH,
+                        zoom = zoom,
+                        nightMode = false
+                    )
+                }
+                dioramaThumbCache.put(cacheKey, rendered)
+                bitmap = rendered
+            }
+        }
+
+        bitmap?.let { bmp ->
+            Image(
+                bitmap = bmp,
+                contentDescription = null,
+                contentScale = ContentScale.Fit,
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+    }
+}
+
+fun renderBiomeDioramaBitmap(
+    biomeId: String,
+    stage: Int,
+    points: Int?,
+    widthPx: Int,
+    heightPx: Int,
+    zoom: Float = 0.98f,
+    nightMode: Boolean = false
+): ImageBitmap {
+    val safeStage = stage.coerceIn(1, 8)
+    val resolvedPoints = if (points != null) {
+        ((points.coerceIn(0, 100) * MAX_POINTS) / 100f).roundToInt().coerceIn(0, MAX_POINTS)
+    } else {
+        STAGE_PRESET_POINTS[safeStage - 1]
+    }
+    val scene = buildBiomeScene(biomeId, resolvedPoints)
+    val sortedEntries = getCachedSortedGrid(45f)
+    val reusablePath = Path()
+    val w = widthPx.coerceAtLeast(64)
+    val h = heightPx.coerceAtLeast(64)
+    val img = ImageBitmap(w, h)
+    val canvas = ComposeCanvas(img)
+    val drawScope = CanvasDrawScope()
+    drawScope.draw(
+        density = Density(1f, 1f),
+        layoutDirection = LayoutDirection.Ltr,
+        canvas = canvas,
+        size = Size(w.toFloat(), h.toFloat())
+    ) {
+        drawBiomeDiorama(
+            scene = scene,
+            sortedEntries = sortedEntries,
+            reusablePath = reusablePath,
+            biomeId = biomeId,
+            safeStage = safeStage,
+            resolvedPoints = resolvedPoints,
+            yawDeg = 45f,
+            zoom = zoom,
+            nightMode = nightMode,
+            shimmerPhase = 0.8f
+        )
+    }
+    return img
+}
+
 @Composable
 fun BiomeDioramaCanvas(
     biomeId: String,
@@ -140,18 +249,35 @@ fun BiomeDioramaCanvas(
     nightMode: Boolean = false,
     interactive: Boolean = false,
     points: Int? = null,
+    prevPoints: Int? = null,
+    sproutProgress: Float = 1f,
+    sproutAccentColor: Color = Color(0xFF34D399),
     onRotateDelta: ((Float) -> Unit)? = null,
     onZoomDelta: ((Float) -> Unit)? = null
 ) {
     val safeStage = stage.coerceIn(1, 8)
-    val resolvedPoints = (points ?: STAGE_PRESET_POINTS[safeStage - 1]).coerceIn(0, MAX_POINTS)
+    val resolvedPoints = if (points != null) {
+        ((points.coerceIn(0, 100) * MAX_POINTS) / 100f).roundToInt().coerceIn(0, MAX_POINTS)
+    } else {
+        STAGE_PRESET_POINTS[safeStage - 1]
+    }
+    val prevResolvedPoints = prevPoints?.let {
+        ((it.coerceIn(0, 100) * MAX_POINTS) / 100f).roundToInt().coerceIn(0, MAX_POINTS)
+    }
 
     val scene = remember(biomeId, resolvedPoints) {
         buildBiomeScene(biomeId, resolvedPoints)
     }
 
-    val sortedEntries = remember(yawDeg) {
-        buildSortedGrid(yawDeg)
+    val prevBudgets = remember(biomeId, prevResolvedPoints, scene) {
+        if (prevResolvedPoints != null && prevResolvedPoints < resolvedPoints) {
+            getBudgetsForPoints(prevResolvedPoints, scene.layout)
+        } else null
+    }
+
+    val yawBucket = (((yawDeg / 5f).roundToInt() * 5) % 360 + 360) % 360
+    val sortedEntries = remember(yawBucket) {
+        getCachedSortedGrid(yawBucket.toFloat())
     }
 
     val reusablePath = remember { Path() }
@@ -180,9 +306,42 @@ fun BiomeDioramaCanvas(
     }
 
     Canvas(modifier = dragMod) {
+        drawBiomeDiorama(
+            scene = scene,
+            sortedEntries = sortedEntries,
+            reusablePath = reusablePath,
+            biomeId = biomeId,
+            safeStage = safeStage,
+            resolvedPoints = resolvedPoints,
+            yawDeg = yawDeg,
+            zoom = zoom,
+            nightMode = nightMode,
+            shimmerPhase = shimmerPhase,
+            prevBudgets = prevBudgets,
+            sproutProgress = sproutProgress,
+            sproutAccentColor = sproutAccentColor
+        )
+    }
+}
+
+private fun DrawScope.drawBiomeDiorama(
+    scene: BiomeSceneData,
+    sortedEntries: List<GridSortEntry>,
+    reusablePath: Path,
+    biomeId: String,
+    safeStage: Int,
+    resolvedPoints: Int,
+    yawDeg: Float,
+    zoom: Float,
+    nightMode: Boolean,
+    shimmerPhase: Float,
+    prevBudgets: BiomeBudgets? = null,
+    sproutProgress: Float = 1f,
+    sproutAccentColor: Color = Color(0xFF34D399)
+) {
         val w = size.width
         val h = size.height
-        if (w <= 2f || h <= 2f) return@Canvas
+        if (w <= 2f || h <= 2f) return
 
         val yawRad = (yawDeg * (PI / 180.0)).toFloat()
         val cosY = cos(yawRad)
@@ -231,6 +390,9 @@ fun BiomeDioramaCanvas(
         val budgets = scene.budgets
         val layout = scene.layout
         val isAwake = safeStage >= 2
+        val trackSprouts = prevBudgets != null && sproutProgress < 1f
+        val sproutSpots = if (trackSprouts) ArrayList<Offset>() else null
+        var fallbackSproutSpot: Offset? = null
 
         var fjordShipTargetX = 0f
         var fjordShipTargetY = 0f
@@ -343,6 +505,9 @@ fun BiomeDioramaCanvas(
                 }
 
                 if (biomeId == "atolon" && (layout.overwaterRanks[key] ?: Int.MAX_VALUE) <= budgets.overwater) {
+                    if (sproutSpots != null && (layout.overwaterRanks[key] ?: Int.MAX_VALUE) > (prevBudgets?.overwater ?: Int.MAX_VALUE)) {
+                        sproutSpots.add(project(wx0 + 0.5f, wy0 + 0.5f, cell.wz + 0.4f))
+                    }
                     drawOverwaterBungalow3D(reusablePath, ::project, wx0, wy0, cell.wz, isAwake, nightMode)
                     continue
                 }
@@ -362,6 +527,12 @@ fun BiomeDioramaCanvas(
                 continue
             }
 
+            if (sproutSpots != null && cell.isPath) {
+                val pRank = layout.pathRanks[key] ?: Int.MAX_VALUE
+                if (pRank in ((prevBudgets?.paths ?: 0) + 1)..budgets.paths) {
+                    sproutSpots.add(project(wx0 + 0.5f, wy0 + 0.5f, cell.wz + 0.12f))
+                }
+            }
             if (cell.isWaterfall || cell.isPath) continue
 
             val isLandmarkPos = layout.landmarkCell?.let { it.x == ix && it.y == iy } == true
@@ -373,6 +544,9 @@ fun BiomeDioramaCanvas(
                 layout.secondaryCell?.let { it.x == ix && it.y == iy } == true
 
             if (budgets.monumentPhase >= 1 && isLandmarkPos) {
+                if (sproutSpots != null && budgets.monumentPhase > (prevBudgets?.monumentPhase ?: 0)) {
+                    sproutSpots.add(project(wx0 + 0.5f, wy0 + 0.5f, cell.wz + 0.85f))
+                }
                 drawLandmark3D(
                     reusablePath,
                     ::project,
@@ -389,18 +563,30 @@ fun BiomeDioramaCanvas(
                 continue
             }
             if (isCostaWindmill) {
+                if (sproutSpots != null && !(prevBudgets?.showSecondary ?: true)) {
+                    sproutSpots.add(project(wx0 + 0.5f, wy0 + 0.5f, cell.wz + 0.75f))
+                }
                 drawWindmill3D(reusablePath, ::project, unitScale, wx0, wy0, cell.wz, isAwake, nightMode)
                 continue
             }
             if (isDesertRuins) {
+                if (sproutSpots != null && !(prevBudgets?.showSecondary ?: true)) {
+                    sproutSpots.add(project(wx0 + 0.5f, wy0 + 0.5f, cell.wz + 0.55f))
+                }
                 drawDesertRuins3D(reusablePath, ::project, wx0, wy0, cell.wz, isAwake, nightMode)
                 continue
             }
             if (isCustomSecondary) {
+                if (sproutSpots != null && !(prevBudgets?.showSecondary ?: true)) {
+                    sproutSpots.add(project(wx0 + 0.5f, wy0 + 0.5f, cell.wz + 0.65f))
+                }
                 drawSecondaryLandmark3D(reusablePath, ::project, unitScale, biomeId, wx0, wy0, cell.wz, isAwake, nightMode)
                 continue
             }
             if ((budgets.monumentPhase >= 2 && isToriiPos) || isSecondTorii) {
+                if (sproutSpots != null && ((isToriiPos && (prevBudgets?.monumentPhase ?: 0) < 2) || (isSecondTorii && !(prevBudgets?.showSecondary ?: true)))) {
+                    sproutSpots.add(project(wx0 + 0.5f, wy0 + 0.5f, cell.wz + 0.65f))
+                }
                 drawTorii3D(::project, unitScale, wx0, wy0, cell.wz)
                 continue
             }
@@ -414,19 +600,36 @@ fun BiomeDioramaCanvas(
             }
 
             if ((layout.tentRanks[key] ?: Int.MAX_VALUE) <= budgets.tents) {
+                if (sproutSpots != null && (layout.tentRanks[key] ?: Int.MAX_VALUE) > (prevBudgets?.tents ?: Int.MAX_VALUE)) {
+                    sproutSpots.add(project(wx0 + 0.5f, wy0 + 0.5f, cell.wz + 0.45f))
+                }
                 drawDesertTent3D(reusablePath, ::project, wx0, wy0, cell.wz, ix + iy, isAwake, nightMode)
                 continue
             }
             if ((layout.houseRanks[key] ?: Int.MAX_VALUE) <= budgets.houses) {
+                if (sproutSpots != null && (layout.houseRanks[key] ?: Int.MAX_VALUE) > (prevBudgets?.houses ?: Int.MAX_VALUE)) {
+                    sproutSpots.add(project(wx0 + 0.5f, wy0 + 0.5f, cell.wz + 0.55f))
+                }
                 val bh = 0.36f + cellHash(ix, iy, 7) * 0.38f
                 drawSettlementHouse3D(reusablePath, ::project, biomeId, wx0, wy0, cell.wz, 0.56f, bh, isAwake, nightMode)
                 continue
             }
             if ((layout.lanternRanks[key] ?: Int.MAX_VALUE) <= budgets.lanterns) {
+                if (sproutSpots != null && (layout.lanternRanks[key] ?: Int.MAX_VALUE) > (prevBudgets?.lanterns ?: Int.MAX_VALUE)) {
+                    sproutSpots.add(project(wx0 + 0.5f, wy0 + 0.5f, cell.wz + 0.45f))
+                }
                 drawLantern3D(::project, unitScale, wx0 + 0.5f, wy0 + 0.5f, cell.wz, isAwake || nightMode)
                 continue
             }
             if ((layout.rockRanks[key] ?: Int.MAX_VALUE) <= budgets.rocks) {
+                if (sproutSpots != null) {
+                    val rk = layout.rockRanks[key] ?: Int.MAX_VALUE
+                    if (rk > (prevBudgets?.rocks ?: Int.MAX_VALUE)) {
+                        sproutSpots.add(project(wx0 + 0.5f, wy0 + 0.5f, cell.wz + 0.38f))
+                    } else if (rk == budgets.rocks) {
+                        fallbackSproutSpot = project(wx0 + 0.5f, wy0 + 0.5f, cell.wz + 0.38f)
+                    }
+                }
                 val rockColor = when (biomeId) {
                     "jungla" -> Color(0xFF637563)
                     "desierto" -> Color(0xFFD4B284)
@@ -442,6 +645,14 @@ fun BiomeDioramaCanvas(
             }
 
             if ((layout.treeRanks[key] ?: Int.MAX_VALUE) <= budgets.trees) {
+                if (sproutSpots != null) {
+                    val tr = layout.treeRanks[key] ?: Int.MAX_VALUE
+                    if (tr > (prevBudgets?.trees ?: Int.MAX_VALUE)) {
+                        sproutSpots.add(project(wx0 + 0.5f, wy0 + 0.5f, cell.wz + 0.55f))
+                    } else if (tr == budgets.trees) {
+                        fallbackSproutSpot = project(wx0 + 0.5f, wy0 + 0.5f, cell.wz + 0.55f)
+                    }
+                }
                 when (biomeId) {
                     "kioto" -> {
                         val scale = 0.78f + cellHash(ix, iy, 63) * 0.24f
@@ -543,7 +754,39 @@ fun BiomeDioramaCanvas(
             phase = shimmerPhase,
             project = ::project
         )
-    }
+
+        if (sproutSpots != null) {
+            val activeSpots = if (sproutSpots.isNotEmpty()) sproutSpots else listOfNotNull(fallbackSproutSpot)
+            val env = sin(sproutProgress.coerceIn(0f, 1f) * PI).toFloat().coerceIn(0f, 1f)
+            activeSpots.forEach { spot ->
+                val auraR = unitScale * (1.1f + sproutProgress * 1.9f)
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        colors = listOf(
+                            Color.White.copy(alpha = 0.72f * env),
+                            sproutAccentColor.copy(alpha = 0.45f * env),
+                            Color.Transparent
+                        ),
+                        center = spot,
+                        radius = auraR
+                    ),
+                    radius = auraR,
+                    center = spot
+                )
+                drawCircle(
+                    color = sproutAccentColor.copy(alpha = 0.85f * env),
+                    radius = unitScale * (0.55f + sproutProgress * 1.45f),
+                    center = spot,
+                    style = Stroke(width = max(1.5f, unitScale * 0.16f))
+                )
+                val riseCenter = Offset(spot.x, spot.y - unitScale * (0.4f + sproutProgress * 1.6f))
+                drawCircle(
+                    color = Color.White.copy(alpha = 0.92f * env),
+                    radius = unitScale * (0.22f * env + 0.08f),
+                    center = riseCenter
+                )
+            }
+        }
 }
 
 private fun DrawScope.drawBackdropAtmosphere(
@@ -718,6 +961,15 @@ private fun DrawScope.drawAtmosphericParticles(
 
 private fun List<Offset>.offsetAll(dx: Float, dy: Float): List<Offset> =
     List(size) { i -> Offset(this[i].x + dx, this[i].y + dy) }
+
+private val sortedGridCache = HashMap<Int, List<GridSortEntry>>()
+
+private fun getCachedSortedGrid(yawDeg: Float): List<GridSortEntry> {
+    val bucket = (((yawDeg / 5f).roundToInt() * 5) % 360 + 360) % 360
+    return synchronized(sortedGridCache) {
+        sortedGridCache.getOrPut(bucket) { buildSortedGrid(bucket.toFloat()) }
+    }
+}
 
 private fun buildSortedGrid(yawDeg: Float): List<GridSortEntry> {
     val yawRad = (yawDeg * (PI / 180.0)).toFloat()

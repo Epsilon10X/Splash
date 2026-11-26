@@ -1,6 +1,8 @@
 package com.splash.offline.viewmodel
 
 import android.app.Application
+import android.content.Context
+import android.content.SharedPreferences
 import android.net.Uri
 import android.os.Build
 import android.os.SystemClock
@@ -14,6 +16,7 @@ import com.splash.offline.audio.SplashAudioManager
 import com.splash.offline.data.ActiveSession
 import com.splash.offline.data.AppLanguage
 import com.splash.offline.data.AppTab
+import com.splash.offline.data.BiomeCelebrationEvent
 import com.splash.offline.data.BiomeLayoutMode
 import com.splash.offline.data.CatalogFilter
 import com.splash.offline.data.CompletionLog
@@ -22,6 +25,7 @@ import com.splash.offline.data.GoalCategory
 import com.splash.offline.data.GoalItem
 import com.splash.offline.data.MapStyle
 import com.splash.offline.data.PendingCameraGoal
+import com.splash.offline.data.PendingNoteCompletion
 import com.splash.offline.data.PhotoStorageHelper
 import com.splash.offline.data.SplashCatalogData
 import com.splash.offline.data.SplashRepository
@@ -32,6 +36,7 @@ import com.splash.offline.data.TimeBucket
 import com.splash.offline.data.VerificationType
 import com.splash.offline.data.WallSubTab
 import com.splash.offline.data.WidgetThemePref
+import java.io.File
 import java.time.LocalDate
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -48,9 +53,23 @@ class SplashViewModel(application: Application) : AndroidViewModel(application) 
     private val _uiState = MutableStateFlow(repo.loadState(baseCatalog))
     val uiState: StateFlow<SplashUiState> = _uiState.asStateFlow()
 
+    private val notifPrefs = application.getSharedPreferences(
+        SplashNotificationScheduler.PREFS_NAME,
+        Context.MODE_PRIVATE
+    )
+    private val notifPrefsListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+        if (key == SplashNotificationScheduler.KEY_PENDING_NOTIF_GOAL_ID ||
+            key == SplashNotificationScheduler.KEY_PENDING_NOTIF_GOAL_TS
+        ) {
+            syncPendingNotifiedGoal()
+        }
+    }
+
     init {
         ensureValidDailyPicks()
+        syncPendingNotifiedGoal()
         repo.syncNativeIntegrations(_uiState.value)
+        notifPrefs.registerOnSharedPreferenceChangeListener(notifPrefsListener)
     }
 
     private fun updateAndPersist(
@@ -148,7 +167,7 @@ class SplashViewModel(application: Application) : AndroidViewModel(application) 
                 updateAndPersist { it.copy(currentQuickIds = picked.id to bPicked.id) }
             }
             TimeBucket.MEDIUM_15M -> {
-                if (st.mediumUsedToday >= 2 && st.extraMediumGoalId != null) {
+                if (st.mediumUsedToday >= 1 && st.extraMediumGoalId != null) {
                     requestExtraGoal(TimeBucket.MEDIUM_15M)
                     return
                 }
@@ -161,9 +180,13 @@ class SplashViewModel(application: Application) : AndroidViewModel(application) 
                 updateAndPersist { it.copy(currentMediumIds = picked.id to bPicked.id) }
             }
             TimeBucket.WEEKLY -> {
+                if (st.weeklyUsedThisWeek >= 4 && st.extraWeeklyGoalId != null) {
+                    requestExtraGoal(TimeBucket.WEEKLY)
+                    return
+                }
                 val pool = st.catalog.filter { !it.isHidden && it.category == GoalCategory.LARGO }
                 val next3 = pool.shuffled().take(3).map { it.id }
-                if (next3.size == 3) {
+                if (next3.isNotEmpty()) {
                     updateAndPersist { it.copy(currentWeeklyIds = next3) }
                 }
             }
@@ -178,14 +201,22 @@ class SplashViewModel(application: Application) : AndroidViewModel(application) 
                 val pool = allQuick.filter { it.id != st.extraQuickGoalId }
                 val picked = (if (pool.isNotEmpty()) pool else allQuick).randomOrNull() ?: return
                 _uiState.update { it.copy(extraQuickGoalId = picked.id) }
+                repo.syncNativeIntegrations(_uiState.value)
             }
             TimeBucket.MEDIUM_15M -> {
                 val allMed = st.catalog.filter { !it.isHidden && it.category == GoalCategory.MEDIO }
                 val pool = allMed.filter { it.id != st.extraMediumGoalId }
                 val picked = (if (pool.isNotEmpty()) pool else allMed).randomOrNull() ?: return
                 _uiState.update { it.copy(extraMediumGoalId = picked.id) }
+                repo.syncNativeIntegrations(_uiState.value)
             }
-            TimeBucket.WEEKLY -> Unit
+            TimeBucket.WEEKLY -> {
+                val allWeekly = st.catalog.filter { !it.isHidden && it.category == GoalCategory.LARGO }
+                val pool = allWeekly.filter { it.id != st.extraWeeklyGoalId }
+                val picked = (if (pool.isNotEmpty()) pool else allWeekly).randomOrNull() ?: return
+                _uiState.update { it.copy(extraWeeklyGoalId = picked.id) }
+                repo.syncNativeIntegrations(_uiState.value)
+            }
         }
     }
 
@@ -194,9 +225,10 @@ class SplashViewModel(application: Application) : AndroidViewModel(application) 
             when (bucket) {
                 TimeBucket.QUICK_2M -> it.copy(extraQuickGoalId = null)
                 TimeBucket.MEDIUM_15M -> it.copy(extraMediumGoalId = null)
-                TimeBucket.WEEKLY -> it
+                TimeBucket.WEEKLY -> it.copy(extraWeeklyGoalId = null)
             }
         }
+        repo.syncNativeIntegrations(_uiState.value)
     }
 
     private fun computeRemainingSec(s: ActiveSession): Int {
@@ -206,7 +238,12 @@ class SplashViewModel(application: Application) : AndroidViewModel(application) 
         return ((diffMs + 999L) / 1000L).toInt().coerceIn(0, s.totalSeconds)
     }
 
-    fun startGoal(goal: GoalItem, isBiomeMission: Boolean = false, isExtra: Boolean = false) {
+    fun startGoal(
+        goal: GoalItem,
+        isBiomeMission: Boolean = false,
+        isExtra: Boolean = false,
+        isFromNotification: Boolean = false
+    ) {
         when (goal.verification) {
             VerificationType.TEMPORIZADOR, VerificationType.PUENTE_ANALOGICO -> {
                 val mins = if (goal.category == GoalCategory.MEDIO) 15 else if (goal.category == GoalCategory.LARGO) 30 else 2
@@ -232,14 +269,71 @@ class SplashViewModel(application: Application) : AndroidViewModel(application) 
                             isFinished = false,
                             isBiomeMission = isBiomeMission,
                             isExtra = isExtra,
-                            isFromWidget = false
+                            isFromWidget = false,
+                            isFromNotification = isFromNotification
                         )
                     )
                 }
             }
             VerificationType.SOCIAL, VerificationType.TOQUE -> {
-                completeGoalNow(goal, isBiomeMission = isBiomeMission, isExtra = isExtra)
+                _uiState.update {
+                    it.copy(
+                        pendingNoteCompletion = PendingNoteCompletion(
+                            goal = goal,
+                            isBiomeMission = isBiomeMission,
+                            isExtra = isExtra,
+                            isFromNotification = isFromNotification
+                        )
+                    )
+                }
             }
+        }
+    }
+
+    fun confirmPendingNoteCompletion(note: String?) {
+        val pending = _uiState.value.pendingNoteCompletion ?: return
+        _uiState.update { it.copy(pendingNoteCompletion = null) }
+        completeGoalNow(
+            goal = pending.goal,
+            isBiomeMission = pending.isBiomeMission,
+            isExtra = pending.isExtra,
+            photoPath = pending.photoPath,
+            isFromNotification = pending.isFromNotification,
+            note = note
+        )
+    }
+
+    fun dismissPendingNoteCompletion() {
+        _uiState.update { it.copy(pendingNoteCompletion = null) }
+    }
+
+    fun deleteMemoryPhoto(completionId: Long) {
+        val target = _uiState.value.completions.firstOrNull { it.id == completionId } ?: return
+        target.photoPath?.let { path ->
+            runCatching { File(path).delete() }
+        }
+        updateAndPersist { cur ->
+            val nextList = if (target.goalId == 0) {
+                cur.completions.filterNot { it.id == completionId }
+            } else {
+                cur.completions.map { if (it.id == completionId) it.copy(photoPath = null) else it }
+            }
+            cur.copy(
+                completions = nextList,
+                toastMessage = SplashStrings.t(cur.lang, "Foto eliminada", "Photo deleted")
+            )
+        }
+    }
+
+    fun updateMemoryBiome(completionId: Long, biomeId: String) {
+        if (SplashCatalogData.BIOMES.none { it.id == biomeId }) return
+        updateAndPersist { cur ->
+            cur.copy(
+                completions = cur.completions.map {
+                    if (it.id == completionId) it.copy(biomeId = biomeId) else it
+                },
+                toastMessage = SplashStrings.t(cur.lang, "Foto organizada en bioma", "Photo moved to biome")
+            )
         }
     }
 
@@ -419,9 +513,89 @@ class SplashViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun onAppForegrounded() {
+        val today = LocalDate.now().toString()
+        val weekIso = repo.currentWeekIso()
+        val cur = _uiState.value
+        if (cur.todayDateIso != today || cur.todayWeekIso != weekIso) {
+            val dayChanged = cur.todayDateIso != today
+            val weekChanged = cur.todayWeekIso != weekIso
+            updateAndPersist { st ->
+                val activeBiomeId = st.activeBiome.id
+                val nextQuick = if (dayChanged) {
+                    val qGen = st.catalog.filter { !it.isHidden && it.category == GoalCategory.RAPIDO && it.biomeExclusive == null }
+                        .randomOrNull()?.id ?: st.currentQuickIds.first
+                    val qBio = st.catalog.firstOrNull { !it.isHidden && it.biomeExclusive == activeBiomeId && it.category == GoalCategory.RAPIDO }?.id
+                        ?: st.currentQuickIds.second
+                    qGen to qBio
+                } else st.currentQuickIds
+                val nextMed = if (dayChanged) {
+                    val mGen = st.catalog.filter { !it.isHidden && it.category == GoalCategory.MEDIO && it.biomeExclusive == null }
+                        .randomOrNull()?.id ?: st.currentMediumIds.first
+                    val mBio = st.catalog.firstOrNull { !it.isHidden && it.biomeExclusive == activeBiomeId && it.category == GoalCategory.MEDIO }?.id
+                        ?: st.currentMediumIds.second
+                    mGen to mBio
+                } else st.currentMediumIds
+                val nextWeekly = if (weekChanged) {
+                    st.catalog.filter { !it.isHidden && it.category == GoalCategory.LARGO }
+                        .shuffled()
+                        .take(3)
+                        .map { it.id }
+                        .ifEmpty { st.currentWeeklyIds }
+                } else st.currentWeeklyIds
+                st.copy(
+                    todayDateIso = today,
+                    todayWeekIso = weekIso,
+                    quickUsedToday = if (dayChanged) 0 else st.quickUsedToday,
+                    mediumUsedToday = if (dayChanged) 0 else st.mediumUsedToday,
+                    surpriseUsedToday = if (dayChanged) 0 else st.surpriseUsedToday,
+                    extraQuickGoalId = if (dayChanged) null else st.extraQuickGoalId,
+                    extraMediumGoalId = if (dayChanged) null else st.extraMediumGoalId,
+                    weeklyUsedThisWeek = if (weekChanged) 0 else st.weeklyUsedThisWeek,
+                    extraWeeklyGoalId = if (weekChanged) null else st.extraWeeklyGoalId,
+                    currentQuickIds = nextQuick,
+                    currentMediumIds = nextMed,
+                    currentWeeklyIds = nextWeekly
+                )
+            }
+        } else {
+            repo.syncNativeIntegrations(cur)
+        }
+        syncPendingNotifiedGoal()
         if (_uiState.value.activeSession?.isRunning == true) {
             tickActiveTimer()
         }
+    }
+
+    private fun syncPendingNotifiedGoal() {
+        val pendingId = SplashNotificationScheduler.getPendingNotificationGoalId(getApplication())
+        if (pendingId > 0) {
+            val exists = _uiState.value.catalog.any { it.id == pendingId && !it.isHidden }
+            if (exists) {
+                _uiState.update { it.copy(notifiedGoalId = pendingId) }
+            } else {
+                SplashNotificationScheduler.clearPendingNotificationGoal(getApplication())
+            }
+        }
+    }
+
+    fun openNotifiedGoal(goalId: Int) {
+        val exists = _uiState.value.catalog.any { it.id == goalId && !it.isHidden }
+        if (!exists) return
+        SplashNotificationScheduler.savePendingNotificationGoal(getApplication(), goalId)
+        _uiState.update {
+            it.copy(
+                notifiedGoalId = goalId,
+                activeTab = AppTab.HOY,
+                isSettingsOpen = false,
+                isFeedbackOpen = false,
+                is3DOpen = false
+            )
+        }
+    }
+
+    fun dismissNotifiedGoal() {
+        SplashNotificationScheduler.clearPendingNotificationGoal(getApplication())
+        _uiState.update { it.copy(notifiedGoalId = null) }
     }
 
     fun openGoalPhotoCapture(goal: GoalItem, isBiomeMission: Boolean = false, isExtra: Boolean = false) {
@@ -433,6 +607,40 @@ class SplashViewModel(application: Application) : AndroidViewModel(application) 
     fun openStandalonePhotoCapture() {
         _uiState.update {
             it.copy(pendingCameraGoal = PendingCameraGoal(goal = null, isStandaloneMemory = true))
+        }
+    }
+
+    fun openCameraForPendingNote() {
+        val pending = _uiState.value.pendingNoteCompletion ?: return
+        _uiState.update {
+            it.copy(
+                pendingCameraGoal = PendingCameraGoal(
+                    goal = pending.goal,
+                    isBiomeMission = pending.isBiomeMission,
+                    isExtra = pending.isExtra,
+                    isStandaloneMemory = false,
+                    isForPendingNote = true
+                )
+            )
+        }
+    }
+
+    fun attachGalleryPhotoToPendingNote(sourceUri: Uri) {
+        val savedPath = PhotoStorageHelper.saveNormalizedPhoto(getApplication(), sourceUri)
+        if (savedPath == null) {
+            showToast(SplashStrings.t(_uiState.value.lang, "No se pudo importar la foto", "Could not import photo"))
+            return
+        }
+        _uiState.update { cur ->
+            val curPending = cur.pendingNoteCompletion ?: return@update cur
+            cur.copy(pendingNoteCompletion = curPending.copy(photoPath = savedPath))
+        }
+    }
+
+    fun removePhotoFromPendingNote() {
+        _uiState.update { cur ->
+            val curPending = cur.pendingNoteCompletion ?: return@update cur
+            cur.copy(pendingNoteCompletion = curPending.copy(photoPath = null))
         }
     }
 
@@ -449,16 +657,27 @@ class SplashViewModel(application: Application) : AndroidViewModel(application) 
             showToast(SplashStrings.t(_uiState.value.lang, "No se pudo guardar la foto", "Could not save photo"))
             return
         }
+        if (pending.isForPendingNote) {
+            _uiState.update { cur ->
+                val curPending = cur.pendingNoteCompletion ?: return@update cur
+                cur.copy(pendingNoteCompletion = curPending.copy(photoPath = savedPath))
+            }
+            return
+        }
         val targetGoal = pending.goal
         if (pending.isStandaloneMemory || targetGoal == null) {
             appendStandalonePhotoMemory(savedPath)
         } else {
-            completeGoalNow(
-                goal = targetGoal,
-                isBiomeMission = pending.isBiomeMission,
-                isExtra = pending.isExtra,
-                photoPath = savedPath
-            )
+            _uiState.update {
+                it.copy(
+                    pendingNoteCompletion = PendingNoteCompletion(
+                        goal = targetGoal,
+                        isBiomeMission = pending.isBiomeMission,
+                        isExtra = pending.isExtra,
+                        photoPath = savedPath
+                    )
+                )
+            }
         }
     }
 
@@ -548,14 +767,34 @@ class SplashViewModel(application: Application) : AndroidViewModel(application) 
                 it.copy(
                     activeSession = null,
                     isAmbientAudioPlaying = false,
-                    savedTimerRemainingSec = nextTimers
+                    savedTimerRemainingSec = nextTimers,
+                    pendingNoteCompletion = PendingNoteCompletion(
+                        goal = session.goal,
+                        isBiomeMission = session.isBiomeMission,
+                        isExtra = session.isExtra,
+                        isFromNotification = session.isFromNotification
+                    )
                 )
             }
-            completeGoalNow(
-                goal = session.goal,
-                isBiomeMission = session.isBiomeMission,
-                isExtra = session.isExtra
-            )
+        }
+    }
+
+    fun previewXpFor(pending: PendingNoteCompletion): Int {
+        val st = _uiState.value
+        val weekIso = repo.currentWeekIso()
+        val prevWeekly = if (st.todayWeekIso == weekIso) st.weeklyUsedThisWeek else 0
+        return when {
+            pending.isFromNotification -> {
+                if (st.surpriseUsedToday >= 5) 0
+                else if (pending.goal.category == GoalCategory.MEDIO) 2 else 1
+            }
+            pending.isExtra -> 0
+            pending.goal.category == GoalCategory.RAPIDO && st.quickUsedToday >= 2 -> 0
+            pending.goal.category == GoalCategory.MEDIO && st.mediumUsedToday >= 1 -> 0
+            pending.goal.category == GoalCategory.LARGO && prevWeekly >= 4 -> 0
+            pending.goal.category == GoalCategory.RAPIDO -> 2
+            pending.goal.category == GoalCategory.MEDIO -> 3
+            else -> 4
         }
     }
 
@@ -563,7 +802,9 @@ class SplashViewModel(application: Application) : AndroidViewModel(application) 
         goal: GoalItem,
         isBiomeMission: Boolean = false,
         isExtra: Boolean = false,
-        photoPath: String? = null
+        photoPath: String? = null,
+        isFromNotification: Boolean = false,
+        note: String? = null
     ) {
         triggerHaptic()
         val st = _uiState.value
@@ -571,30 +812,39 @@ class SplashViewModel(application: Application) : AndroidViewModel(application) 
         val weekIso = repo.currentWeekIso()
         val prevWeekly = if (st.todayWeekIso == weekIso) st.weeklyUsedThisWeek else 0
         val xpGain = when {
+            isFromNotification -> {
+                if (st.surpriseUsedToday >= 5) 0
+                else if (goal.category == GoalCategory.MEDIO) 2 else 1
+            }
             isExtra -> 0
             goal.category == GoalCategory.RAPIDO && st.quickUsedToday >= 2 -> 0
-            goal.category == GoalCategory.MEDIO && st.mediumUsedToday >= 2 -> 0
-            goal.category == GoalCategory.LARGO && prevWeekly >= 2 -> 0
-            goal.category == GoalCategory.RAPIDO -> 1
-            goal.category == GoalCategory.MEDIO -> 4
-            else -> 8
+            goal.category == GoalCategory.MEDIO && st.mediumUsedToday >= 1 -> 0
+            goal.category == GoalCategory.LARGO && prevWeekly >= 4 -> 0
+            goal.category == GoalCategory.RAPIDO -> 2
+            goal.category == GoalCategory.MEDIO -> 3
+            else -> 4
         }
 
         val activeBiome = st.activeBiome
         val prevXp = st.biomeXpById[activeBiome.id] ?: 0
-        val nextXp = (prevXp + xpGain).coerceAtMost(80)
+        val nextXp = (prevXp + xpGain).coerceAtMost(SplashCatalogData.MAX_BIOME_XP)
         val nextMap = st.biomeXpById.toMutableMap().apply { put(activeBiome.id, nextXp) }
 
         var nextUnlocked = st.unlockedBiomeCount
-        var nextActiveIdx = st.activeBiomeIndex
+        var unlockTargetIdx: Int? = null
         var unlockedBanner = false
-        if (nextXp >= 80 && st.activeBiomeIndex == st.unlockedBiomeCount - 1 && st.unlockedBiomeCount < SplashCatalogData.BIOMES.size) {
+        if (nextXp >= SplashCatalogData.MAX_BIOME_XP &&
+            st.activeBiomeIndex == st.unlockedBiomeCount - 1 &&
+            st.unlockedBiomeCount < SplashCatalogData.BIOMES.size
+        ) {
             nextUnlocked = (st.unlockedBiomeCount + 1).coerceAtMost(SplashCatalogData.BIOMES.size)
-            nextActiveIdx = nextUnlocked - 1
-            nextMap.putIfAbsent(SplashCatalogData.BIOMES[nextActiveIdx].id, 0)
+            val targetIdx = nextUnlocked - 1
+            unlockTargetIdx = targetIdx
+            nextMap.putIfAbsent(SplashCatalogData.BIOMES[targetIdx].id, 0)
             unlockedBanner = true
         }
 
+        val cleanNote = note?.trim()?.takeIf { it.isNotEmpty() }
         val newLog = CompletionLog(
             id = System.currentTimeMillis(),
             dateIso = today,
@@ -605,52 +855,194 @@ class SplashViewModel(application: Application) : AndroidViewModel(application) 
             category = goal.category,
             biomeId = activeBiome.id,
             photoPath = photoPath,
-            earnedXp = xpGain
+            earnedXp = xpGain,
+            note = cleanNote
         )
 
-        val msg = if (unlockedBanner) {
-            val newBiomeName = SplashCatalogData.BIOMES[nextActiveIdx].name(st.lang)
+        val nextBiomeDef = unlockTargetIdx?.let { SplashCatalogData.BIOMES.getOrNull(it) }
+        val msg = if (unlockedBanner && nextBiomeDef != null) {
+            val newBiomeName = nextBiomeDef.name(st.lang)
             SplashStrings.t(st.lang, "Bioma completado. Desbloqueaste: $newBiomeName", "Biome completed. Unlocked: $newBiomeName")
         } else if (xpGain > 0) {
             SplashStrings.t(st.lang, "Hecho (+$xpGain pt bioma). Ya puedes bloquear el móvil.", "Done (+$xpGain biome pt). You can lock your phone now.")
+        } else if (isExtra || isFromNotification) {
+            SplashStrings.t(st.lang, "Completado en Muro Real (+0 pts bioma).", "Saved to Real Wall (+0 biome pts).")
         } else {
-            SplashStrings.t(st.lang, "Objetivo extra completado.", "Extra goal completed.")
+            SplashStrings.t(st.lang, "Completado en Muro Real.", "Saved to Real Wall.")
         }
+
+        val clearedNotified = st.notifiedGoalId == goal.id
+        if (clearedNotified) {
+            SplashNotificationScheduler.clearPendingNotificationGoal(getApplication())
+        }
+
+        val celebrationEvent = if (xpGain > 0 || unlockedBanner) {
+            BiomeCelebrationEvent(
+                id = System.currentTimeMillis(),
+                category = goal.category,
+                earnedXp = xpGain,
+                isSurprise = isFromNotification,
+                prevXp = prevXp,
+                nextXp = nextXp,
+                biomeUnlocked = unlockedBanner,
+                completedBiomeId = activeBiome.id,
+                completedBiomeName = activeBiome.name(st.lang),
+                nextBiomeId = nextBiomeDef?.id,
+                nextBiomeIndex = unlockTargetIdx,
+                nextBiomeName = nextBiomeDef?.name(st.lang)
+            )
+        } else null
 
         updateAndPersist { cur ->
             val baseWeekly = if (cur.todayWeekIso == weekIso) cur.weeklyUsedThisWeek else 0
             cur.copy(
                 todayDateIso = today,
                 todayWeekIso = weekIso,
-                quickUsedToday = if (goal.category == GoalCategory.RAPIDO && !isExtra) cur.quickUsedToday + 1 else cur.quickUsedToday,
-                mediumUsedToday = if (goal.category == GoalCategory.MEDIO && !isExtra) cur.mediumUsedToday + 1 else cur.mediumUsedToday,
-                weeklyUsedThisWeek = if (goal.category == GoalCategory.LARGO && !isExtra) baseWeekly + 1 else baseWeekly,
+                quickUsedToday = if (goal.category == GoalCategory.RAPIDO && !isExtra && !isFromNotification) cur.quickUsedToday + 1 else cur.quickUsedToday,
+                mediumUsedToday = if (goal.category == GoalCategory.MEDIO && !isExtra && !isFromNotification) cur.mediumUsedToday + 1 else cur.mediumUsedToday,
+                weeklyUsedThisWeek = if (goal.category == GoalCategory.LARGO && !isExtra && !isFromNotification) baseWeekly + 1 else baseWeekly,
+                surpriseUsedToday = if (isFromNotification && xpGain > 0) cur.surpriseUsedToday + 1 else cur.surpriseUsedToday,
                 extraQuickGoalId = if (isExtra && goal.category == GoalCategory.RAPIDO) null else cur.extraQuickGoalId,
                 extraMediumGoalId = if (isExtra && goal.category == GoalCategory.MEDIO) null else cur.extraMediumGoalId,
+                extraWeeklyGoalId = if (isExtra && goal.category == GoalCategory.LARGO) null else cur.extraWeeklyGoalId,
+                notifiedGoalId = if (cur.notifiedGoalId == goal.id) null else cur.notifiedGoalId,
                 biomeXpById = nextMap,
                 unlockedBiomeCount = nextUnlocked,
-                activeBiomeIndex = nextActiveIdx,
                 betaStageOverride = null,
+                biomeCelebration = celebrationEvent ?: cur.biomeCelebration,
                 completions = listOf(newLog) + cur.completions,
                 toastMessage = msg
             )
         }
-        rerollAfterCompletion(goal.category)
+        if (!isExtra && !isFromNotification) {
+            rerollAfterCompletion(goal.category, goal.id)
+        }
     }
 
-    private fun rerollAfterCompletion(cat: GoalCategory) {
+    private fun rerollAfterCompletion(cat: GoalCategory, completedGoalId: Int) {
         val st = _uiState.value
         val activeBiomeId = st.activeBiome.id
-        if (cat == GoalCategory.RAPIDO) {
-            val pool = st.catalog.filter { !it.isHidden && it.category == GoalCategory.RAPIDO && it.biomeExclusive == null && it.id != st.currentQuickIds.first }
-            val next = pool.randomOrNull() ?: return
-            val bNext = st.catalog.firstOrNull { !it.isHidden && it.biomeExclusive == activeBiomeId && it.category == GoalCategory.RAPIDO }?.id ?: st.currentQuickIds.second
-            updateAndPersist { it.copy(currentQuickIds = next.id to bNext) }
-        } else if (cat == GoalCategory.MEDIO) {
-            val pool = st.catalog.filter { !it.isHidden && it.category == GoalCategory.MEDIO && it.biomeExclusive == null && it.id != st.currentMediumIds.first }
-            val next = pool.randomOrNull() ?: return
-            val bNext = st.catalog.firstOrNull { !it.isHidden && it.biomeExclusive == activeBiomeId && it.category == GoalCategory.MEDIO }?.id ?: st.currentMediumIds.second
-            updateAndPersist { it.copy(currentMediumIds = next.id to bNext) }
+        when (cat) {
+            GoalCategory.RAPIDO -> {
+                val allGen = st.catalog.filter {
+                    !it.isHidden && it.category == GoalCategory.RAPIDO && it.biomeExclusive == null
+                }
+                val pool = allGen.filter { it.id != st.currentQuickIds.first && it.id != completedGoalId }
+                val next = (if (pool.isNotEmpty()) pool else allGen).randomOrNull() ?: return
+                val bNext = st.catalog.firstOrNull { !it.isHidden && it.biomeExclusive == activeBiomeId && it.category == GoalCategory.RAPIDO }?.id
+                    ?: st.currentQuickIds.second
+                updateAndPersist { it.copy(currentQuickIds = next.id to bNext) }
+            }
+            GoalCategory.MEDIO -> {
+                val allGen = st.catalog.filter {
+                    !it.isHidden && it.category == GoalCategory.MEDIO && it.biomeExclusive == null
+                }
+                val pool = allGen.filter { it.id != st.currentMediumIds.first && it.id != completedGoalId }
+                val next = (if (pool.isNotEmpty()) pool else allGen).randomOrNull() ?: return
+                val bNext = st.catalog.firstOrNull { !it.isHidden && it.biomeExclusive == activeBiomeId && it.category == GoalCategory.MEDIO }?.id
+                    ?: st.currentMediumIds.second
+                updateAndPersist { it.copy(currentMediumIds = next.id to bNext) }
+            }
+            GoalCategory.LARGO -> {
+                val shown = st.currentWeeklyIds
+                val candidates = st.catalog.filter {
+                    !it.isHidden && it.category == GoalCategory.LARGO && it.id !in shown && it.id != completedGoalId
+                }
+                val replacement = candidates.randomOrNull()
+                val nextWeekly = if (completedGoalId in shown) {
+                    if (replacement != null) {
+                        shown.map { if (it == completedGoalId) replacement.id else it }
+                    } else {
+                        shown.filterNot { it == completedGoalId }
+                    }
+                } else if (replacement != null) {
+                    (listOf(replacement.id) + shown.dropLast(1)).distinct().take(3)
+                } else {
+                    shown
+                }
+                if (nextWeekly != shown) {
+                    updateAndPersist { it.copy(currentWeeklyIds = nextWeekly) }
+                }
+            }
+        }
+    }
+
+    fun clearBiomeCelebration(eventId: Long) {
+        val current = _uiState.value
+        val ev = current.biomeCelebration ?: return
+        if (ev.id != eventId) return
+        val nextIdx = ev.nextBiomeIndex
+        if (nextIdx != null && nextIdx in SplashCatalogData.BIOMES.indices) {
+            val targetBiomeId = SplashCatalogData.BIOMES[nextIdx].id
+            val bQuick = current.catalog.firstOrNull { !it.isHidden && it.biomeExclusive == targetBiomeId && it.category == GoalCategory.RAPIDO }?.id
+                ?: current.currentQuickIds.second
+            val bMed = current.catalog.firstOrNull { !it.isHidden && it.biomeExclusive == targetBiomeId && it.category == GoalCategory.MEDIO }?.id
+                ?: current.currentMediumIds.second
+            updateAndPersist { cur ->
+                if (cur.biomeCelebration?.id != eventId) cur
+                else cur.copy(
+                    activeBiomeIndex = nextIdx,
+                    biomeCelebration = null,
+                    currentQuickIds = cur.currentQuickIds.first to bQuick,
+                    currentMediumIds = cur.currentMediumIds.first to bMed
+                )
+            }
+        } else {
+            _uiState.update { cur ->
+                if (cur.biomeCelebration?.id == eventId) cur.copy(biomeCelebration = null) else cur
+            }
+        }
+    }
+
+    fun previewBiomeCelebration(category: GoalCategory) {
+        val st = _uiState.value
+        val b = st.activeBiome
+        val curXp = (st.biomeXpById[b.id] ?: 0).coerceIn(0, SplashCatalogData.MAX_BIOME_XP)
+        val gain = when (category) {
+            GoalCategory.RAPIDO -> 2
+            GoalCategory.MEDIO -> 3
+            GoalCategory.LARGO -> 4
+        }
+        val prevXp: Int
+        val nextXp: Int
+        if (curXp + gain <= SplashCatalogData.MAX_BIOME_XP) {
+            prevXp = curXp
+            nextXp = curXp + gain
+            val map = st.biomeXpById.toMutableMap().apply { put(b.id, nextXp) }
+            updateAndPersist { cur ->
+                cur.copy(
+                    biomeXpById = map,
+                    betaStageOverride = null,
+                    isSettingsOpen = false,
+                    activeTab = AppTab.HOY,
+                    biomeCelebration = BiomeCelebrationEvent(
+                        id = System.currentTimeMillis(),
+                        category = category,
+                        earnedXp = gain,
+                        isSurprise = false,
+                        prevXp = prevXp,
+                        nextXp = nextXp
+                    )
+                )
+            }
+        } else {
+            prevXp = (curXp - gain).coerceAtLeast(0)
+            nextXp = curXp
+            _uiState.update { cur ->
+                cur.copy(
+                    betaStageOverride = null,
+                    isSettingsOpen = false,
+                    activeTab = AppTab.HOY,
+                    biomeCelebration = BiomeCelebrationEvent(
+                        id = System.currentTimeMillis(),
+                        category = category,
+                        earnedXp = gain,
+                        isSurprise = false,
+                        prevXp = prevXp,
+                        nextXp = nextXp
+                    )
+                )
+            }
         }
     }
 
@@ -658,10 +1050,10 @@ class SplashViewModel(application: Application) : AndroidViewModel(application) 
         val st = _uiState.value
         val b = st.activeBiome
         val prev = st.biomeXpById[b.id] ?: 0
-        val next = (prev + points).coerceIn(0, 80)
+        val next = (prev + points).coerceIn(0, SplashCatalogData.MAX_BIOME_XP)
         val map = st.biomeXpById.toMutableMap().apply { put(b.id, next) }
         var unlocked = st.unlockedBiomeCount
-        if (next >= 80 && st.activeBiomeIndex == unlocked - 1 && unlocked < SplashCatalogData.BIOMES.size) {
+        if (next >= SplashCatalogData.MAX_BIOME_XP && st.activeBiomeIndex == unlocked - 1 && unlocked < SplashCatalogData.BIOMES.size) {
             unlocked += 1
         }
         updateAndPersist { cur ->
@@ -669,7 +1061,7 @@ class SplashViewModel(application: Application) : AndroidViewModel(application) 
                 biomeXpById = map,
                 unlockedBiomeCount = unlocked,
                 betaStageOverride = null,
-                toastMessage = "+$points XP -> ${b.shortName(cur.lang)} ($next/80)"
+                toastMessage = "+$points% -> ${b.shortName(cur.lang)} ($next/100)"
             )
         }
     }
@@ -716,12 +1108,19 @@ class SplashViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun setUserName(name: String) {
-        val clean = name.trim().take(28).ifEmpty { "Explorador" }
+        val clean = name.trim().take(28)
         updateAndPersist {
             it.copy(
                 userName = clean,
                 toastMessage = SplashStrings.t(it.lang, "Nombre guardado", "Name saved")
             )
+        }
+    }
+
+    fun setDailyNotifCount(count: Int) {
+        val clamped = count.coerceIn(2, 7)
+        updateAndPersist(forceRescheduleNotifs = true) {
+            it.copy(dailyNotifCount = clamped)
         }
     }
 
@@ -756,15 +1155,45 @@ class SplashViewModel(application: Application) : AndroidViewModel(application) 
     fun completeActiveBiomeBeta() {
         val st = _uiState.value
         val b = st.activeBiome
-        val map = st.biomeXpById.toMutableMap().apply { put(b.id, 80) }
-        val nextUnlocked = (st.unlockedBiomeCount + 1).coerceAtMost(SplashCatalogData.BIOMES.size)
+        val prevXp = (st.biomeXpById[b.id] ?: 0).coerceIn(0, SplashCatalogData.MAX_BIOME_XP)
+        val map = st.biomeXpById.toMutableMap().apply { put(b.id, SplashCatalogData.MAX_BIOME_XP) }
+        val nextBiomeIdx = (st.activeBiomeIndex + 1).takeIf { it < SplashCatalogData.BIOMES.size }
+        val nextUnlocked = if (nextBiomeIdx != null) {
+            maxOf(st.unlockedBiomeCount, nextBiomeIdx + 1).coerceAtMost(SplashCatalogData.BIOMES.size)
+        } else {
+            st.unlockedBiomeCount
+        }
+        val nextBiomeDef = nextBiomeIdx?.let { SplashCatalogData.BIOMES[it] }
+        if (nextBiomeDef != null) {
+            map.putIfAbsent(nextBiomeDef.id, 0)
+        }
+        val animPrev = if (prevXp >= SplashCatalogData.MAX_BIOME_XP) 90 else prevXp
         updateAndPersist { cur ->
             cur.copy(
                 biomeXpById = map,
                 unlockedBiomeCount = nextUnlocked,
-                activeBiomeIndex = (nextUnlocked - 1).coerceAtMost(SplashCatalogData.BIOMES.lastIndex),
                 betaStageOverride = null,
-                toastMessage = SplashStrings.t(cur.lang, "Bioma completado (80/80)", "Biome completed (80/80)")
+                isSettingsOpen = false,
+                activeTab = AppTab.HOY,
+                biomeCelebration = BiomeCelebrationEvent(
+                    id = System.currentTimeMillis(),
+                    category = GoalCategory.LARGO,
+                    earnedXp = SplashCatalogData.MAX_BIOME_XP - animPrev,
+                    isSurprise = false,
+                    prevXp = animPrev,
+                    nextXp = SplashCatalogData.MAX_BIOME_XP,
+                    biomeUnlocked = true,
+                    completedBiomeId = b.id,
+                    completedBiomeName = b.name(cur.lang),
+                    nextBiomeId = nextBiomeDef?.id,
+                    nextBiomeIndex = nextBiomeIdx,
+                    nextBiomeName = nextBiomeDef?.name(cur.lang)
+                ),
+                toastMessage = if (nextBiomeDef != null) {
+                    SplashStrings.t(cur.lang, "Bioma completado · Siguiente: ${nextBiomeDef.name(cur.lang)}", "Biome completed · Next: ${nextBiomeDef.name(cur.lang)}")
+                } else {
+                    SplashStrings.t(cur.lang, "Bioma completado (100/100)", "Biome completed (100/100)")
+                }
             )
         }
     }
@@ -780,8 +1209,11 @@ class SplashViewModel(application: Application) : AndroidViewModel(application) 
                 quickUsedToday = 0,
                 mediumUsedToday = 0,
                 weeklyUsedThisWeek = 0,
+                surpriseUsedToday = 0,
                 extraQuickGoalId = null,
                 extraMediumGoalId = null,
+                extraWeeklyGoalId = null,
+                biomeCelebration = null,
                 completions = emptyList(),
                 selectedDayIso = today,
                 toastMessage = SplashStrings.t(cur.lang, "Progreso reiniciado desde 0", "Progress reset from 0")
@@ -797,17 +1229,18 @@ class SplashViewModel(application: Application) : AndroidViewModel(application) 
         _uiState.update { it.copy(catalogFilter = f) }
     }
 
-    fun createCustomGoal(title: String, category: GoalCategory, areaEs: String) {
-        val clean = title.trim()
-        if (clean.isEmpty()) return
+    fun createCustomGoal(title: String, description: String, category: GoalCategory, areaEs: String) {
+        val cleanTitle = title.trim()
+        if (cleanTitle.isEmpty()) return
+        val cleanDesc = description.trim().ifEmpty { cleanTitle }
         val nextId = (_uiState.value.catalog.maxOfOrNull { it.id } ?: 200) + 1
         val item = GoalItem(
             id = nextId,
-            titleShortEs = clean.take(26),
-            titleEs = clean,
+            titleShortEs = cleanTitle.take(36),
+            titleEs = cleanDesc,
             subEs = areaEs,
-            titleShortEn = clean.take(26),
-            titleEn = clean,
+            titleShortEn = cleanTitle.take(36),
+            titleEn = cleanDesc,
             subEn = SplashStrings.areaFor(AppLanguage.EN, areaEs),
             category = category,
             iconName = "eco",
@@ -819,7 +1252,11 @@ class SplashViewModel(application: Application) : AndroidViewModel(application) 
             cur.copy(
                 catalog = listOf(item) + cur.catalog,
                 isCreateGoalOpen = false,
-                toastMessage = SplashStrings.t(cur.lang, "Objetivo guardado en Catálogo", "Goal saved in Catalog")
+                toastMessage = SplashStrings.t(
+                    cur.lang,
+                    "Objetivo guardado · ya entra en Hoy y notificaciones",
+                    "Goal saved · now in Today & notifications"
+                )
             )
         }
     }
@@ -904,6 +1341,7 @@ class SplashViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     override fun onCleared() {
+        notifPrefs.unregisterOnSharedPreferenceChangeListener(notifPrefsListener)
         audioManager.stop()
         super.onCleared()
     }

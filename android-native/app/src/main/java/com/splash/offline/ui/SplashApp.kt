@@ -69,6 +69,7 @@ import com.splash.offline.data.SplashStrings
 import com.splash.offline.data.SplashUiState
 import com.splash.offline.ui.modals.FeedbackSheet
 import com.splash.offline.ui.modals.FocusTimerOverlay
+import com.splash.offline.ui.modals.PastSelfMessageDialog
 import com.splash.offline.ui.modals.SettingsSheet
 import com.splash.offline.ui.modals.UpdateDialog
 import com.splash.offline.ui.screens.Biome3DExplorerOverlay
@@ -178,6 +179,14 @@ fun SplashApp(
         }
     }
 
+    val pickPendingNoteGalleryLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri ->
+        if (uri != null) {
+            viewModel.attachGalleryPhotoToPendingNote(uri)
+        }
+    }
+
     val cameraPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { granted ->
@@ -252,8 +261,10 @@ fun SplashApp(
                             onReroll = { viewModel.rerollSuggestions() },
                             onRequestExtraGoal = { viewModel.requestExtraGoal(it) },
                             onDismissExtraGoal = { viewModel.dismissExtraGoal(it) },
-                            onStartGoal = { g, isBiome, isExtra -> viewModel.startGoal(g, isBiome, isExtra) },
+                            onDismissNotifiedGoal = { viewModel.dismissNotifiedGoal() },
+                            onStartGoal = { g, isBiome, isExtra, isNotif -> viewModel.startGoal(g, isBiome, isExtra, isNotif) },
                             onPhotoGoal = { g, isBiome, isExtra -> viewModel.openGoalPhotoCapture(g, isBiome, isExtra) },
+                            onClearCelebration = { viewModel.clearBiomeCelebration(it) },
                             onOpenCatalog = { viewModel.selectTab(AppTab.CATALOGO) },
                             onOpenBiomes = { viewModel.selectTab(AppTab.BIOMAS) }
                         )
@@ -268,7 +279,9 @@ fun SplashApp(
                             onOpenBiome3D = { idx -> viewModel.toggle3DExplorer(true, idx) },
                             onTakeMemoryPhoto = { viewModel.openStandalonePhotoCapture() },
                             onPickGalleryPhoto = { pickGalleryLauncher.launch("image/*") },
-                            onExportPhotoToGallery = { path, title -> viewModel.exportMemoryPhotoToGallery(path, title) }
+                            onExportPhotoToGallery = { path, title -> viewModel.exportMemoryPhotoToGallery(path, title) },
+                            onDeleteMemoryPhoto = { id -> viewModel.deleteMemoryPhoto(id) },
+                            onUpdateMemoryBiome = { id, biomeId -> viewModel.updateMemoryBiome(id, biomeId) }
                         )
 
                         AppTab.CATALOGO -> CatalogScreen(
@@ -277,7 +290,7 @@ fun SplashApp(
                             onFilterChange = { viewModel.updateCatalogFilter(it) },
                             onOpenCreate = { viewModel.setCreateGoalOpen(true) },
                             onDismissCreate = { viewModel.setCreateGoalOpen(false) },
-                            onCreateGoal = { t, cat, area -> viewModel.createCustomGoal(t, cat, area) },
+                            onCreateGoal = { t, desc, cat, area -> viewModel.createCustomGoal(t, desc, cat, area) },
                             onToggleFavorite = { viewModel.toggleFavoriteGoal(it) },
                             onStartGoal = { g -> viewModel.startGoal(g, false, false) }
                         )
@@ -448,8 +461,10 @@ fun SplashApp(
                     onSelectWidgetTheme = { viewModel.setWidgetThemePref(it) },
                     onToggleDayHour = { d, h -> viewModel.toggleDayHour(d, h) },
                     onApplyPreset = { viewModel.applySchedulePreset(it) },
+                    onSetDailyNotifCount = { viewModel.setDailyNotifCount(it) },
                     onToggleBeta = { viewModel.setBetaMode(it) },
                     onCompleteBiomeBeta = { viewModel.completeActiveBiomeBeta() },
+                    onPreviewBiomeCelebration = { viewModel.previewBiomeCelebration(it) },
                     onResetProgress = { viewModel.resetAllProgress() },
                     onShowToast = { viewModel.showToast(it) }
                 )
@@ -524,6 +539,25 @@ fun SplashApp(
                         }
                     }
                 }
+            }
+
+            state.pendingNoteCompletion?.let { pending ->
+                val pts = viewModel.previewXpFor(pending)
+                val ptsLabel = when {
+                    pending.isFromNotification && pts > 0 -> SplashStrings.t(state.lang, "+$pts pt sorpresa bioma", "+$pts surprise biome pt")
+                    pts > 0 -> SplashStrings.t(state.lang, "+$pts pts bioma", "+$pts biome pts")
+                    else -> SplashStrings.t(state.lang, "Extra · Muro Real (+0 pts bioma)", "Extra · Real Wall (+0 biome pts)")
+                }
+                PastSelfMessageDialog(
+                    lang = state.lang,
+                    pending = pending,
+                    pointsPreviewLabel = ptsLabel,
+                    onTakePhoto = { viewModel.openCameraForPendingNote() },
+                    onPickGalleryPhoto = { pickPendingNoteGalleryLauncher.launch("image/*") },
+                    onRemovePhoto = { viewModel.removePhotoFromPendingNote() },
+                    onDismiss = { viewModel.dismissPendingNoteCompletion() },
+                    onConfirm = { note -> viewModel.confirmPendingNoteCompletion(note) }
+                )
             }
 
             availableUpdate?.let { updateInfo ->

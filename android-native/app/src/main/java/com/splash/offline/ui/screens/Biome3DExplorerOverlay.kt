@@ -126,7 +126,7 @@ fun Biome3DExplorerOverlay(
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = "${stageDef.title(state.lang)} · ${state.activeBiomeXp}/80 pts",
+                        text = "${stageDef.title(state.lang)} · ${state.activeBiomeXp}%",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -231,11 +231,11 @@ fun Biome3DExplorerOverlay(
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Button(
-                            onClick = { onGrantBetaXp(1) },
+                            onClick = { onGrantBetaXp(2) },
                             modifier = Modifier.weight(1f),
                             colors = ButtonDefaults.filledTonalButtonColors()
                         ) {
-                            Text(SplashStrings.t(state.lang, "+1 Rápido", "+1 Quick"))
+                            Text("+2 Flash")
                         }
                         Button(
                             onClick = { onGrantBetaXp(4) },

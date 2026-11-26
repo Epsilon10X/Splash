@@ -92,6 +92,11 @@ class MainActivity : ComponentActivity() {
         viewModel.onAppForegrounded()
     }
 
+    override fun onResume() {
+        super.onResume()
+        viewModel.onAppForegrounded()
+    }
+
     override fun onStop() {
         val pm = getSystemService(PowerManager::class.java)
         if (pm?.isInteractive == true) {
@@ -108,6 +113,11 @@ class MainActivity : ComponentActivity() {
 
     private fun handleWidgetIntent(intent: Intent?) {
         if (intent == null) return
+        val notifGoalId = intent.getIntExtra(SplashNotificationScheduler.EXTRA_NOTIF_GOAL_ID, -1)
+        if (notifGoalId > 0) {
+            intent.removeExtra(SplashNotificationScheduler.EXTRA_NOTIF_GOAL_ID)
+            viewModel.openNotifiedGoal(notifGoalId)
+        }
         val mins = intent.getIntExtra("splash_timer_min", 0)
         if (mins > 0) {
             intent.removeExtra("splash_timer_min")

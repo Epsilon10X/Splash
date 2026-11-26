@@ -36,7 +36,7 @@ import androidx.compose.material.icons.rounded.RotateRight
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LinearWavyProgressIndicator
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -54,7 +54,7 @@ import com.splash.offline.data.BiomeLayoutMode
 import com.splash.offline.data.SplashCatalogData
 import com.splash.offline.data.SplashStrings
 import com.splash.offline.data.SplashUiState
-import com.splash.offline.ui.components.BiomeDioramaCanvas
+import com.splash.offline.ui.components.BiomeDioramaThumbnail
 
 @Composable
 fun BiomesScreen(
@@ -207,7 +207,8 @@ private fun BiomeGridTile(
     xp: Int,
     onTap: () -> Unit
 ) {
-    val stage = ((xp / 10) + 1).coerceIn(1, 8)
+    val safeXp = xp.coerceIn(0, SplashCatalogData.MAX_BIOME_XP)
+    val stage = ((safeXp * 7) / SplashCatalogData.MAX_BIOME_XP + 1).coerceIn(1, 8)
     Surface(
         shape = RoundedCornerShape(22.dp),
         color = if (isActive) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainerLow,
@@ -228,10 +229,10 @@ private fun BiomeGridTile(
                     .fillMaxWidth()
                     .height(104.dp)
             ) {
-                BiomeDioramaCanvas(
+                BiomeDioramaThumbnail(
                     biomeId = biome.id,
                     stage = stage,
-                    points = xp,
+                    points = safeXp,
                     zoom = 0.98f,
                     modifier = Modifier.fillMaxSize()
                 )
@@ -248,14 +249,26 @@ private fun BiomeGridTile(
                     }
                 }
             }
-            Text(
-                text = biome.shortName(state.lang),
-                style = MaterialTheme.typography.titleSmall,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            LinearWavyProgressIndicator(
-                progress = { (xp / 80f).coerceIn(0.04f, 1f) },
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = biome.shortName(state.lang),
+                    style = MaterialTheme.typography.titleSmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
+                )
+                Text(
+                    text = "$safeXp%",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            LinearProgressIndicator(
+                progress = { (safeXp / 100f).coerceIn(0f, 1f) },
                 modifier = Modifier.fillMaxWidth()
             )
         }
@@ -273,7 +286,8 @@ private fun BiomeStackCard(
     onEquip: () -> Unit,
     onOpen3D: () -> Unit
 ) {
-    val stage = ((xp / 10) + 1).coerceIn(1, 8)
+    val safeXp = xp.coerceIn(0, SplashCatalogData.MAX_BIOME_XP)
+    val stage = ((safeXp * 7) / SplashCatalogData.MAX_BIOME_XP + 1).coerceIn(1, 8)
     Surface(
         shape = RoundedCornerShape(26.dp),
         color = if (isActive) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainerLow,
@@ -287,10 +301,10 @@ private fun BiomeStackCard(
             modifier = Modifier.padding(14.dp)
         ) {
             if (large) {
-                BiomeDioramaCanvas(
+                BiomeDioramaThumbnail(
                     biomeId = biome.id,
                     stage = stage,
-                    points = xp,
+                    points = safeXp,
                     zoom = 0.96f,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -304,10 +318,10 @@ private fun BiomeStackCard(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 if (!large) {
-                    BiomeDioramaCanvas(
+                    BiomeDioramaThumbnail(
                         biomeId = biome.id,
                         stage = stage,
-                        points = xp,
+                        points = safeXp,
                         zoom = 0.98f,
                         modifier = Modifier.size(78.dp)
                     )
@@ -316,17 +330,30 @@ private fun BiomeStackCard(
                 Column(modifier = Modifier.weight(1f)) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text(
-                            text = biome.name(state.lang),
-                            style = MaterialTheme.typography.titleMedium,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        if (!unlocked) {
-                            Icon(Icons.Rounded.Lock, contentDescription = null, modifier = Modifier.size(15.dp))
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text(
+                                text = biome.name(state.lang),
+                                style = MaterialTheme.typography.titleMedium,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f, fill = false)
+                            )
+                            if (!unlocked) {
+                                Icon(Icons.Rounded.Lock, contentDescription = null, modifier = Modifier.size(15.dp))
+                            }
                         }
+                        Text(
+                            text = "$safeXp%",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.primary
+                        )
                     }
                     Text(
                         text = biome.subtitle(state.lang),
@@ -335,8 +362,8 @@ private fun BiomeStackCard(
                         maxLines = 2
                     )
                     Spacer(Modifier.height(6.dp))
-                    LinearWavyProgressIndicator(
-                        progress = { (xp / 80f).coerceIn(0.05f, 1f) },
+                    LinearProgressIndicator(
+                        progress = { (safeXp / 100f).coerceIn(0f, 1f) },
                         modifier = Modifier.fillMaxWidth()
                     )
                 }

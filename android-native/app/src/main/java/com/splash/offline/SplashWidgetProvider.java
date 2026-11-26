@@ -8,6 +8,7 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.Color;
 import android.os.Build;
 import android.widget.RemoteViews;
 import java.io.File;
@@ -36,10 +37,13 @@ public class SplashWidgetProvider extends AppWidgetProvider {
     public static void updateAllWidgets(Context context, AppWidgetManager appWidgetManager, int[] appWidgetIds) {
         SharedPreferences prefs = context.getSharedPreferences("splash_widget", Context.MODE_PRIVATE);
         String biomeShort = prefs.getString("biomeShort", "Valle");
-        String goal2Title = prefs.getString("goal2Title", prefs.getString("nextGoal", "Respirar aire fresco"));
-        String goal15Title = prefs.getString("goal15Title", "Caminar cuesta arriba");
+        String flash1Title = prefs.getString("flash1Title", prefs.getString("goal2Title", "Respirar aire fresco"));
+        String flash1Sub = prefs.getString("flash1Sub", "Flash · 2 min");
+        boolean flash1Done = prefs.getBoolean("flash1Done", false);
+        String flash2Title = prefs.getString("flash2Title", "Postura y agua");
+        String flash2Sub = prefs.getString("flash2Sub", "Flash · 2 min");
+        boolean flash2Done = prefs.getBoolean("flash2Done", false);
         String themeMode = prefs.getString("themeMode", "auto");
-        boolean isEn = prefs.getBoolean("isEn", false);
 
         Intent launchIntent = new Intent(context, MainActivity.class);
         launchIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
@@ -49,6 +53,11 @@ public class SplashWidgetProvider extends AppWidgetProvider {
         }
         PendingIntent pendingIntent = PendingIntent.getActivity(context, 0, launchIntent, flags);
         Bitmap biomeBitmap = loadBiomeBitmap(context);
+
+        int pendingTitleColor = Color.parseColor("#FFF8EE");
+        int pendingSubColor = Color.parseColor("#D8C4AA");
+        int doneTitleColor = Color.parseColor("#F2FFF5");
+        int doneSubColor = Color.parseColor("#A7E8B8");
 
         for (int appWidgetId : appWidgetIds) {
             RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.widget_splash);
@@ -66,14 +75,31 @@ public class SplashWidgetProvider extends AppWidgetProvider {
             if (biomeBitmap != null) {
                 views.setImageViewBitmap(R.id.widget_biome_img, biomeBitmap);
             } else {
-                views.setImageViewResource(R.id.widget_biome_img, R.mipmap.ic_launcher);
+                views.setImageViewResource(R.id.widget_biome_img, R.drawable.widget_valle_max);
             }
 
+            views.setInt(
+                R.id.widget_tile_rapido,
+                "setBackgroundResource",
+                flash1Done ? R.drawable.widget_goal_done_light : R.drawable.widget_goal_rapido_light
+            );
+            views.setInt(
+                R.id.widget_tile_medio,
+                "setBackgroundResource",
+                flash2Done ? R.drawable.widget_goal_done_light : R.drawable.widget_goal_rapido_light
+            );
+
             views.setTextViewText(R.id.widget_biome_chip, biomeShort);
-            views.setTextViewText(R.id.widget_goal_2m_title, goal2Title);
-            views.setTextViewText(R.id.widget_goal_2m_sub, isEn ? "2 min · Quick" : "2 min · Rápido");
-            views.setTextViewText(R.id.widget_goal_15m_title, goal15Title);
-            views.setTextViewText(R.id.widget_goal_15m_sub, isEn ? "15 min · Focus" : "15 min · Enfoque");
+            views.setTextViewText(R.id.widget_goal_2m_title, flash1Title);
+            views.setTextViewText(R.id.widget_goal_2m_sub, flash1Sub);
+            views.setTextColor(R.id.widget_goal_2m_title, flash1Done ? doneTitleColor : pendingTitleColor);
+            views.setTextColor(R.id.widget_goal_2m_sub, flash1Done ? doneSubColor : pendingSubColor);
+
+            views.setTextViewText(R.id.widget_goal_15m_title, flash2Title);
+            views.setTextViewText(R.id.widget_goal_15m_sub, flash2Sub);
+            views.setTextColor(R.id.widget_goal_15m_title, flash2Done ? doneTitleColor : pendingTitleColor);
+            views.setTextColor(R.id.widget_goal_15m_sub, flash2Done ? doneSubColor : pendingSubColor);
+
             views.setOnClickPendingIntent(R.id.widget_root, pendingIntent);
             appWidgetManager.updateAppWidget(appWidgetId, views);
         }

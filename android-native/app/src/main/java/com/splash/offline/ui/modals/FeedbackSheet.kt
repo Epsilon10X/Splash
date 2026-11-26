@@ -76,7 +76,9 @@ fun FeedbackSheet(
 ) {
     val scope = rememberCoroutineScope()
 
+    var respondentName by remember(state.userName) { mutableStateOf(state.userName) }
     var disconnectHelp by remember { mutableStateOf("") }
+    var notifControlAgree by remember { mutableStateOf("") }
     var favoriteMap by remember { mutableStateOf("") }
     var favoriteFlip by remember { mutableStateOf("") }
     var favoriteBiomeOrder by remember { mutableStateOf("") }
@@ -144,32 +146,36 @@ fun FeedbackSheet(
             if (customProofIdea.isNotBlank()) add("Otra idea: ${customProofIdea.trim()}")
         }.joinToString(", ").ifBlank { "Sin respuesta" }
 
+        val userLabel = respondentName.trim().ifBlank { "Sin nombre" }
         return buildString {
-            appendLine("=== INFORME SPLASH BETA v2.0.17 ===")
-            appendLine("Usuario: ${state.userName}")
-            appendLine("1. Ayuda a desconectar / dejar de scrollear: ${disconnectHelp.ifBlank { "Sin respuesta" }}")
-            appendLine("2. Top 5 objetivos favoritos:")
+            appendLine("=== INFORME SPLASH BETA v2.0.24 ===")
+            appendLine("1. Nombre: $userLabel")
+            appendLine("2. Ayuda a desconectar / dejar de scrollear: ${disconnectHelp.ifBlank { "Sin respuesta" }}")
+            appendLine("3. Control aleatoriedad notificaciones: ${notifControlAgree.ifBlank { "Sin respuesta" }}")
+            appendLine("4. Top 5 objetivos favoritos:")
             if (favNames.isEmpty()) appendLine("   - Ninguno")
             else favNames.forEach { appendLine("   - $it") }
-            appendLine("3. Top 5 objetivos que menos gustan:")
+            appendLine("5. Top 5 objetivos que menos gustan:")
             if (dislikeNames.isEmpty()) appendLine("   - Ninguno")
             else dislikeNames.forEach { appendLine("   - $it") }
-            appendLine("4. Top 3 biomas favoritos:")
+            appendLine("6. Top 3 biomas favoritos:")
             if (favBiomeNames.isEmpty()) appendLine("   - Ninguno")
             else favBiomeNames.forEach { appendLine("   - $it") }
-            appendLine("5. Top 3 biomas que menos gustan:")
+            appendLine("7. Top 3 biomas que menos gustan:")
             if (dislikeBiomeNames.isEmpty()) appendLine("   - Ninguno")
             else dislikeBiomeNames.forEach { appendLine("   - $it") }
-            appendLine("6. Mapa favorito: ${favoriteMap.ifBlank { "Sin respuesta" }}")
-            appendLine("7. Estilo de volteo favorito: ${favoriteFlip.ifBlank { "Sin respuesta" }}")
-            appendLine("8. Diseño biomas favorito: ${favoriteBiomeOrder.ifBlank { "Sin respuesta" }}")
-            appendLine("9. Cómo demostrar cumplido: $proofSummary")
-            appendLine("10. Comentarios: ${comments.trim().ifBlank { "Ninguno" }}")
+            appendLine("8. Mapa favorito: ${favoriteMap.ifBlank { "Sin respuesta" }}")
+            appendLine("9. Estilo de volteo favorito: ${favoriteFlip.ifBlank { "Sin respuesta" }}")
+            appendLine("10. Diseño biomas favorito: ${favoriteBiomeOrder.ifBlank { "Sin respuesta" }}")
+            appendLine("11. Cómo demostrar cumplido: $proofSummary")
+            appendLine("12. Comentarios: ${comments.trim().ifBlank { "Ninguno" }}")
         }
     }
 
     fun submitToNetlify() {
-        val hasAnyAnswer = disconnectHelp.isNotBlank() ||
+        val hasAnyAnswer = respondentName.isNotBlank() ||
+            disconnectHelp.isNotBlank() ||
+            notifControlAgree.isNotBlank() ||
             favGoalIds.isNotEmpty() ||
             favCustomGoals.isNotEmpty() ||
             dislikeGoalIds.isNotEmpty() ||
@@ -200,9 +206,10 @@ fun FeedbackSheet(
         val fields = linkedMapOf(
             "form-name" to "splash-beta-feedback",
             "bot-field" to "",
-            "usuario" to state.userName,
-            "version" to "2.0.17",
+            "usuario" to respondentName.trim().ifBlank { "Sin nombre" },
+            "version" to "2.0.24",
             "ayuda_desconectar" to disconnectHelp.ifBlank { "Sin respuesta" },
+            "control_notis" to notifControlAgree.ifBlank { "Sin respuesta" },
             "mapa_favorito" to favoriteMap.ifBlank { "Sin respuesta" },
             "estilo_volteo" to favoriteFlip.ifBlank { "Sin respuesta" },
             "diseno_biomas" to favoriteBiomeOrder.ifBlank { "Sin respuesta" },
@@ -346,12 +353,28 @@ fun FeedbackSheet(
                     }
                 }
             } else {
-                // 1. Cuanto ayuda a dejar de scrollear o desconectar
+                // 1. Nombre
+                FeedbackSectionCard(
+                    title = SplashStrings.t(state.lang, "1. Tu nombre o apodo", "1. Your name or nickname")
+                ) {
+                    OutlinedTextField(
+                        value = respondentName,
+                        onValueChange = { respondentName = it },
+                        singleLine = true,
+                        shape = RoundedCornerShape(16.dp),
+                        placeholder = {
+                            Text(SplashStrings.t(state.lang, "Escribe tu nombre...", "Type your name..."))
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+
+                // 2. Cuanto ayuda a dejar de scrollear o desconectar
                 FeedbackSectionCard(
                     title = SplashStrings.t(
                         state.lang,
-                        "1. ¿Cuánto te ayuda Splash a dejar de scrollear o desconectar?",
-                        "1. How much does Splash help you stop scrolling or unplug?"
+                        "2. ¿Cuánto te ayuda Splash a dejar de scrollear o desconectar?",
+                        "2. How much does Splash help you stop scrolling or unplug?"
                     )
                 ) {
                     val disconnectOptions = listOf(
@@ -376,12 +399,40 @@ fun FeedbackSheet(
                     }
                 }
 
-                // 2. Tus 5 objetivos favoritos
+                // 3. Control del maximo de notificaciones aleatorias
+                FeedbackSectionCard(
+                    title = SplashStrings.t(
+                        state.lang,
+                        "3. ¿Estás de acuerdo con poder elegir el máximo de notificaciones aleatorias al día?",
+                        "3. Do you like choosing the daily max of random notifications?"
+                    )
+                ) {
+                    val notifControlOptions = listOf(
+                        "Sí, prefiero controlar el máximo" to SplashStrings.t(state.lang, "Sí, mejor elegir máximo", "Yes, pick daily max"),
+                        "No, prefiero 100% sorpresa" to SplashStrings.t(state.lang, "No, prefiero 100% sorpresa", "No, 100% surprise"),
+                        "Me da igual" to SplashStrings.t(state.lang, "Me da igual", "No preference")
+                    )
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        notifControlOptions.forEach { (value, label) ->
+                            FilterChip(
+                                selected = notifControlAgree == value,
+                                onClick = { notifControlAgree = if (notifControlAgree == value) "" else value },
+                                shape = CircleShape,
+                                label = { Text(label) }
+                            )
+                        }
+                    }
+                }
+
+                // 4. Tus 5 objetivos favoritos
                 GoalMultiPickerCard(
                     title = SplashStrings.t(
                         state.lang,
-                        "2. Elige tus 5 objetivos favoritos (${favGoalIds.size + favCustomGoals.size}/5)",
-                        "2. Pick your top 5 favorite goals (${favGoalIds.size + favCustomGoals.size}/5)"
+                        "4. Elige tus 5 objetivos favoritos (${favGoalIds.size + favCustomGoals.size}/5)",
+                        "4. Pick your top 5 favorite goals (${favGoalIds.size + favCustomGoals.size}/5)"
                     ),
                     lang = state.lang,
                     allGoals = availableGoals,
@@ -422,12 +473,12 @@ fun FeedbackSheet(
                     icon = Icons.Rounded.Favorite
                 )
 
-                // 3. Tus 5 objetivos menos favoritos
+                // 5. Tus 5 objetivos menos favoritos
                 GoalMultiPickerCard(
                     title = SplashStrings.t(
                         state.lang,
-                        "3. Elige los 5 objetivos que menos te gustan (${dislikeGoalIds.size + dislikeCustomGoals.size}/5)",
-                        "3. Pick the 5 goals you like least (${dislikeGoalIds.size + dislikeCustomGoals.size}/5)"
+                        "5. Elige los 5 objetivos que menos te gustan (${dislikeGoalIds.size + dislikeCustomGoals.size}/5)",
+                        "5. Pick the 5 goals you like least (${dislikeGoalIds.size + dislikeCustomGoals.size}/5)"
                     ),
                     lang = state.lang,
                     allGoals = availableGoals,
@@ -468,12 +519,12 @@ fun FeedbackSheet(
                     icon = Icons.Rounded.ThumbDown
                 )
 
-                // 4. Tus 3 biomas favoritos
+                // 6. Tus 3 biomas favoritos
                 FeedbackSectionCard(
                     title = SplashStrings.t(
                         state.lang,
-                        "4. Elige tus 3 biomas favoritos (${favBiomeIds.size}/3)",
-                        "4. Pick your top 3 favorite biomes (${favBiomeIds.size}/3)"
+                        "6. Elige tus 3 biomas favoritos (${favBiomeIds.size}/3)",
+                        "6. Pick your top 3 favorite biomes (${favBiomeIds.size}/3)"
                     )
                 ) {
                     FlowRow(
@@ -502,12 +553,12 @@ fun FeedbackSheet(
                     }
                 }
 
-                // 5. Tus 3 biomas menos favoritos
+                // 7. Tus 3 biomas menos favoritos
                 FeedbackSectionCard(
                     title = SplashStrings.t(
                         state.lang,
-                        "5. Elige los 3 biomas que menos te gustan (${dislikeBiomeIds.size}/3)",
-                        "5. Pick the 3 biomes you like least (${dislikeBiomeIds.size}/3)"
+                        "7. Elige los 3 biomas que menos te gustan (${dislikeBiomeIds.size}/3)",
+                        "7. Pick the 3 biomes you like least (${dislikeBiomeIds.size}/3)"
                     )
                 ) {
                     FlowRow(
@@ -536,9 +587,9 @@ fun FeedbackSheet(
                     }
                 }
 
-                // 6. Que mapa mola mas
+                // 8. Que mapa mola mas
                 FeedbackSectionCard(
-                    title = SplashStrings.t(state.lang, "6. ¿Qué mapa mola más?", "6. Which map style is best?")
+                    title = SplashStrings.t(state.lang, "8. ¿Qué mapa mola más?", "8. Which map style is best?")
                 ) {
                     val mapOptions = listOf("1", "2", "3", "4")
                     FlowRow(
@@ -556,13 +607,13 @@ fun FeedbackSheet(
                     }
                 }
 
-                // 7. Estilo de volteo de flashcard
+                // 9. Estilo de volteo de flashcard
                 FeedbackSectionCard(
-                    title = SplashStrings.t(state.lang, "7. ¿Qué estilo de volteo de flashcard prefieres?", "7. Which flashcard reveal style do you prefer?")
+                    title = SplashStrings.t(state.lang, "9. ¿Qué estilo de volteo de flashcard prefieres?", "9. Which flashcard reveal style do you prefer?")
                 ) {
                     val flipOptions = listOf(
-                        "Rápido izq · Giro 3D horizontal" to SplashStrings.t(state.lang, "Giro 3D horizontal (Rápido izq)", "3D Horizontal Flip (Quick L)"),
-                        "Rápido der · Cortina deslizante" to SplashStrings.t(state.lang, "Cortina deslizante (Rápido der)", "Sliding Curtain (Quick R)"),
+                        "Flash izq · Giro 3D horizontal" to SplashStrings.t(state.lang, "Giro 3D horizontal (Flash izq)", "3D Horizontal Flip (Flash L)"),
+                        "Flash der · Cortina deslizante" to SplashStrings.t(state.lang, "Cortina deslizante (Flash der)", "Sliding Curtain (Flash R)"),
                         "Medio izq · Giro 3D vertical" to SplashStrings.t(state.lang, "Giro 3D vertical (Medio izq)", "3D Vertical Flip (Med L)"),
                         "Medio der · Acordeón lateral" to SplashStrings.t(state.lang, "Acordeón lateral (Medio der)", "Side Accordion (Med R)")
                     )
@@ -581,9 +632,9 @@ fun FeedbackSheet(
                     }
                 }
 
-                // 8. Diseno para ordenar los biomas
+                // 10. Diseno para ordenar los biomas
                 FeedbackSectionCard(
-                    title = SplashStrings.t(state.lang, "8. ¿Qué diseño te gusta más para ordenar los biomas?", "8. Which biome layout order do you prefer?")
+                    title = SplashStrings.t(state.lang, "10. ¿Qué diseño te gusta más para ordenar los biomas?", "10. Which biome layout order do you prefer?")
                 ) {
                     val layoutOptions = listOf(
                         "Mini (cuadrícula)" to SplashStrings.t(state.lang, "Mini (cuadrícula 2 col.)", "Mini (2-col grid)"),
@@ -605,9 +656,9 @@ fun FeedbackSheet(
                     }
                 }
 
-                // 9. Como demostrar que has cumplido un objetivo
+                // 11. Como demostrar que has cumplido un objetivo
                 FeedbackSectionCard(
-                    title = SplashStrings.t(state.lang, "9. ¿Cómo te gustaría demostrar que has cumplido un objetivo?", "9. How should you prove goal completion?")
+                    title = SplashStrings.t(state.lang, "11. ¿Cómo te gustaría demostrar que has cumplido un objetivo?", "11. How should you prove goal completion?")
                 ) {
                     val proofOptions = listOf(
                         "Temporizador sin salir (pantalla apagada)" to SplashStrings.t(state.lang, "Temporizador sin salir (pantalla apagada)", "Focus timer without leaving"),
@@ -644,9 +695,9 @@ fun FeedbackSheet(
                     )
                 }
 
-                // 10. Comentarios
+                // 12. Comentarios
                 FeedbackSectionCard(
-                    title = SplashStrings.t(state.lang, "10. Otros detalles o sugerencias", "10. Other suggestions or details")
+                    title = SplashStrings.t(state.lang, "12. Otros detalles o sugerencias", "12. Other suggestions or details")
                 ) {
                     OutlinedTextField(
                         value = comments,

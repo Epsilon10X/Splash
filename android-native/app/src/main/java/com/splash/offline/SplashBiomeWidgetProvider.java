@@ -22,7 +22,7 @@ public class SplashBiomeWidgetProvider extends AppWidgetProvider {
         SharedPreferences prefs = context.getSharedPreferences("splash_widget", Context.MODE_PRIVATE);
         String biomeName = prefs.getString("biomeName", "Valle Alpino");
         String levelLabel = prefs.getString("levelLabel", "Nv. 1");
-        String streakLabel = prefs.getString("streakLabel", "0 días");
+        String flashStatus = prefs.getString("flashStatusLabel", prefs.getString("streakLabel", "Flash 0/2"));
         String themeMode = prefs.getString("themeMode", "auto");
 
         Intent launchIntent = new Intent(context, MainActivity.class);
@@ -51,10 +51,10 @@ public class SplashBiomeWidgetProvider extends AppWidgetProvider {
             if (biomeBitmap != null) {
                 views.setImageViewBitmap(R.id.widget_biome_2x2_img, biomeBitmap);
             } else {
-                views.setImageViewResource(R.id.widget_biome_2x2_img, R.mipmap.ic_launcher);
+                views.setImageViewResource(R.id.widget_biome_2x2_img, R.drawable.widget_valle_max);
             }
             views.setTextViewText(R.id.widget_biome_name, biomeName);
-            views.setTextViewText(R.id.widget_biome_level, levelLabel + " · " + streakLabel);
+            views.setTextViewText(R.id.widget_biome_level, levelLabel + " · " + flashStatus);
             views.setOnClickPendingIntent(R.id.widget_biome_root, pendingIntent);
             appWidgetManager.updateAppWidget(appWidgetId, views);
         }

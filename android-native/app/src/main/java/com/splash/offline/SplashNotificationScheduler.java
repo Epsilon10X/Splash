@@ -22,14 +22,32 @@ public final class SplashNotificationScheduler {
     public static final String KEY_PAYLOAD = "payloadJson";
     public static final String KEY_NEXT_TRIGGER_MS = "nextTriggerMs";
     public static final String KEY_LAST_TIMER_CHIME_TOKEN = "lastTimerChimeToken";
+    public static final String KEY_PENDING_NOTIF_GOAL_ID = "pendingNotifGoalId";
+    public static final String KEY_PENDING_NOTIF_GOAL_TS = "pendingNotifGoalTs";
+    public static final String KEY_DAILY_PLAN_KEY = "dailyPlanKey";
+    public static final String KEY_DAILY_PLAN_TIMES = "dailyPlanTimes";
     public static final String ACTION_RANDOM_PING = "com.splash.offline.ACTION_RANDOM_PING";
     public static final String ACTION_TIMER_DONE = "com.splash.offline.ACTION_TIMER_DONE";
     public static final String EXTRA_TIMER_TITLE = "timer_title";
     public static final String EXTRA_TIMER_BODY = "timer_body";
     public static final String EXTRA_TIMER_TOKEN = "timer_token";
+    public static final String EXTRA_NOTIF_GOAL_ID = "splash_notif_goal_id";
     private static final int ALARM_REQ_CODE = 4040;
     private static final int TIMER_REQ_CODE = 4055;
+    private static final long PENDING_NOTIF_MAX_AGE_MS = 24L * 60L * 60L * 1000L;
     private static final String[] DAY_KEYS = {"sun", "mon", "tue", "wed", "thu", "fri", "sat"};
+
+    public static final class PickedNotification {
+        public final int goalId;
+        public final String title;
+        public final String body;
+
+        public PickedNotification(int goalId, String title, String body) {
+            this.goalId = goalId;
+            this.title = title;
+            this.body = body;
+        }
+    }
 
     private SplashNotificationScheduler() {}
 
@@ -147,54 +165,129 @@ public final class SplashNotificationScheduler {
         }
 
         alarmManager.cancel(pi);
-        long minTriggerMs = nowMs + 35L * 60L * 1000L;
+        int dailyCount = 4;
+        if (payload != null) {
+            dailyCount = Math.max(2, Math.min(7, payload.optInt("dailyCount", 4)));
+        }
 
         Calendar base = Calendar.getInstance();
         Random rng = new Random();
+        SimpleDateFormat dayFmt = new SimpleDateFormat("yyyy-MM-dd", Locale.US);
+        String existingPlanKey = prefs.getString(KEY_DAILY_PLAN_KEY, "");
+        String existingPlanTimesRaw = prefs.getString(KEY_DAILY_PLAN_TIMES, "");
 
         for (int dayOffset = 0; dayOffset < 7; dayOffset++) {
             Calendar dayCal = (Calendar) base.clone();
             dayCal.add(Calendar.DAY_OF_YEAR, dayOffset);
+            dayCal.set(Calendar.HOUR_OF_DAY, 0);
+            dayCal.set(Calendar.MINUTE, 0);
+            dayCal.set(Calendar.SECOND, 0);
+            dayCal.set(Calendar.MILLISECOND, 0);
+
             List<Integer> hours = getAllowedHoursForDay(payload, dayCal.get(Calendar.DAY_OF_WEEK));
             if (hours.isEmpty()) continue;
 
-            List<Integer> candidateHours = new ArrayList<>();
+            StringBuilder hoursSig = new StringBuilder();
             for (int h : hours) {
-                Calendar slotEnd = (Calendar) dayCal.clone();
-                slotEnd.set(Calendar.HOUR_OF_DAY, h);
-                slotEnd.set(Calendar.MINUTE, 59);
-                slotEnd.set(Calendar.SECOND, 0);
-                slotEnd.set(Calendar.MILLISECOND, 0);
-                if (slotEnd.getTimeInMillis() > minTriggerMs) {
-                    candidateHours.add(h);
+                hoursSig.append(h).append(',');
+            }
+            String planKey = dayFmt.format(dayCal.getTime()) + "|" + dailyCount + "|" + hoursSig;
+
+            List<Long> daySlots = null;
+            if (!forceReschedule && planKey.equals(existingPlanKey) && !existingPlanTimesRaw.isEmpty()) {
+                daySlots = parsePlanTimes(existingPlanTimesRaw);
+            }
+            if (daySlots == null || daySlots.isEmpty()) {
+                daySlots = buildDailyRandomSlots(dayCal, hours, dailyCount, rng);
+                prefs.edit()
+                    .putString(KEY_DAILY_PLAN_KEY, planKey)
+                    .putString(KEY_DAILY_PLAN_TIMES, joinPlanTimes(daySlots))
+                    .apply();
+            }
+
+            long minWaitMs = forceReschedule ? (nowMs + 60_000L) : (nowMs + 15_000L);
+            for (long slotMs : daySlots) {
+                if (slotMs >= minWaitMs) {
+                    prefs.edit().putLong(KEY_NEXT_TRIGGER_MS, slotMs).apply();
+                    scheduleExactOrFallback(alarmManager, slotMs, pi);
+                    return;
                 }
             }
-            if (candidateHours.isEmpty()) continue;
-
-            int span = Math.min(4, candidateHours.size());
-            int chosenHour = candidateHours.get(rng.nextInt(span));
-
-            Calendar slot = (Calendar) dayCal.clone();
-            slot.set(Calendar.HOUR_OF_DAY, chosenHour);
-            slot.set(Calendar.SECOND, 0);
-            slot.set(Calendar.MILLISECOND, 0);
-
-            int minMinute = 0;
-            Calendar earliest = Calendar.getInstance();
-            earliest.setTimeInMillis(minTriggerMs);
-            if (dayOffset == 0 && chosenHour == earliest.get(Calendar.HOUR_OF_DAY)) {
-                minMinute = Math.min(58, earliest.get(Calendar.MINUTE) + 1);
-            }
-            int chosenMin = minMinute + rng.nextInt(Math.max(1, 60 - minMinute));
-            slot.set(Calendar.MINUTE, chosenMin);
-
-            long triggerMs = Math.max(minTriggerMs, slot.getTimeInMillis());
-            prefs.edit().putLong(KEY_NEXT_TRIGGER_MS, triggerMs).apply();
-            scheduleExactOrFallback(alarmManager, triggerMs, pi);
-            return;
         }
 
         prefs.edit().putLong(KEY_NEXT_TRIGGER_MS, 0L).apply();
+    }
+
+    private static List<Long> buildDailyRandomSlots(Calendar dayStartCal, List<Integer> hours, int dailyCount, Random rng) {
+        List<Integer> minuteOfDayPool = new ArrayList<>();
+        for (int h : hours) {
+            int baseMin = h * 60;
+            for (int m = 0; m < 60; m++) {
+                minuteOfDayPool.add(baseMin + m);
+            }
+        }
+        int totalMins = minuteOfDayPool.size();
+        List<Long> result = new ArrayList<>();
+        if (totalMins == 0) return result;
+
+        int maxPossible = Math.min(dailyCount, totalMins);
+        int actualCount = maxPossible <= 2 ? maxPossible : (2 + rng.nextInt(maxPossible - 2 + 1));
+        int targetCount = actualCount;
+        int lastPicked = -1000;
+        int minGap = (totalMins >= targetCount * 22) ? 20 : 5;
+
+        for (int i = 0; i < targetCount; i++) {
+            int segStart = (i * totalMins) / targetCount;
+            int segEnd = ((i + 1) * totalMins) / targetCount - 1;
+            if (segEnd < segStart) segEnd = segStart;
+
+            int span = Math.max(1, segEnd - segStart + 1);
+            int chosenIdx = segStart + rng.nextInt(span);
+            int chosenMinOfDay = minuteOfDayPool.get(chosenIdx);
+            if (chosenMinOfDay - lastPicked < minGap) {
+                for (int probe = segStart; probe <= segEnd; probe++) {
+                    int candidate = minuteOfDayPool.get(probe);
+                    if (candidate - lastPicked >= minGap) {
+                        chosenMinOfDay = candidate;
+                        break;
+                    }
+                }
+            }
+            lastPicked = chosenMinOfDay;
+
+            Calendar slot = (Calendar) dayStartCal.clone();
+            slot.set(Calendar.HOUR_OF_DAY, chosenMinOfDay / 60);
+            slot.set(Calendar.MINUTE, chosenMinOfDay % 60);
+            slot.set(Calendar.SECOND, rng.nextInt(50));
+            slot.set(Calendar.MILLISECOND, 0);
+            result.add(slot.getTimeInMillis());
+        }
+        Collections.sort(result);
+        return result;
+    }
+
+    private static List<Long> parsePlanTimes(String raw) {
+        List<Long> list = new ArrayList<>();
+        try {
+            String[] parts = raw.split(",");
+            for (String p : parts) {
+                if (!p.isEmpty()) {
+                    list.add(Long.parseLong(p));
+                }
+            }
+        } catch (Throwable ignored) {
+            list.clear();
+        }
+        return list;
+    }
+
+    private static String joinPlanTimes(List<Long> times) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < times.size(); i++) {
+            if (i > 0) sb.append(',');
+            sb.append(times.get(i));
+        }
+        return sb.toString();
     }
 
     public static void scheduleTimerDone(Context context, long triggerAtWallMs, String title, String body, String token) {
@@ -276,18 +369,49 @@ public final class SplashNotificationScheduler {
         }
     }
 
-    public static String[] pickRandomNotification(Context context) {
+    public static void savePendingNotificationGoal(Context context, int goalId) {
+        if (context == null || goalId <= 0) return;
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putInt(KEY_PENDING_NOTIF_GOAL_ID, goalId)
+            .putLong(KEY_PENDING_NOTIF_GOAL_TS, System.currentTimeMillis())
+            .commit();
+    }
+
+    public static int getPendingNotificationGoalId(Context context) {
+        if (context == null) return -1;
+        SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        int id = prefs.getInt(KEY_PENDING_NOTIF_GOAL_ID, -1);
+        long ts = prefs.getLong(KEY_PENDING_NOTIF_GOAL_TS, 0L);
+        if (id <= 0) return -1;
+        if (ts > 0L && (System.currentTimeMillis() - ts) > PENDING_NOTIF_MAX_AGE_MS) {
+            prefs.edit().remove(KEY_PENDING_NOTIF_GOAL_ID).remove(KEY_PENDING_NOTIF_GOAL_TS).apply();
+            return -1;
+        }
+        return id;
+    }
+
+    public static void clearPendingNotificationGoal(Context context) {
+        if (context == null) return;
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .remove(KEY_PENDING_NOTIF_GOAL_ID)
+            .remove(KEY_PENDING_NOTIF_GOAL_TS)
+            .apply();
+    }
+
+    public static PickedNotification pickRandomNotificationGoal(Context context) {
         JSONObject payload = loadPayload(context);
         boolean isEn = payload != null && "en".equals(payload.optString("lang", "es"));
         Random rng = new Random();
-        boolean useMedio = rng.nextInt(4) == 0; // 25% 15-min, 75% 2-min quick
+        boolean useMedio = rng.nextInt(4) == 0; // 25% 15-min, 75% Flash (2 min)
 
         String badgeQuick = payload != null && !payload.optString("quickBadge").isEmpty()
             ? payload.optString("quickBadge")
-            : (isEn ? "Splash · 2 min" : "Splash · Aviso Rápido");
+            : "Splash · Flash";
         String badgeMedio = payload != null && !payload.optString("medioBadge").isEmpty()
             ? payload.optString("medioBadge")
-            : (isEn ? "Splash · 15 min" : "Splash · Enfoque");
+            : (isEn ? "Splash · Focus" : "Splash · Enfoque");
 
         JSONArray pool = null;
         if (payload != null) {
@@ -302,12 +426,28 @@ public final class SplashNotificationScheduler {
         String body = isEn
             ? "Take a 2-minute pause away from the screen."
             : "Tómate 2 minutos lejos de la pantalla para cuidar tu bioma.";
+        int goalId = -1;
         if (pool != null && pool.length() > 0) {
-            String picked = pool.optString(rng.nextInt(pool.length()), "");
-            if (!picked.isEmpty()) {
-                body = picked;
+            int idx = rng.nextInt(pool.length());
+            JSONObject obj = pool.optJSONObject(idx);
+            if (obj != null) {
+                goalId = obj.optInt("id", -1);
+                String pickedBody = obj.optString("body", "");
+                if (!pickedBody.isEmpty()) {
+                    body = pickedBody;
+                }
+            } else {
+                String picked = pool.optString(idx, "");
+                if (!picked.isEmpty()) {
+                    body = picked;
+                }
             }
         }
-        return new String[]{title, body};
+        return new PickedNotification(goalId, title, body);
+    }
+
+    public static String[] pickRandomNotification(Context context) {
+        PickedNotification p = pickRandomNotificationGoal(context);
+        return new String[]{p.title, p.body};
     }
 }

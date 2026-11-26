@@ -70,9 +70,18 @@ public class SplashNotificationReceiver extends BroadcastReceiver {
             ensureChannel(context);
             boolean forceTest = intent.getBooleanExtra(EXTRA_FORCE_TEST, false);
             if (hasPermission(context) && (forceTest || SplashNotificationScheduler.isNowAllowed(context))) {
-                String[] msg = SplashNotificationScheduler.pickRandomNotification(context);
+                SplashNotificationScheduler.PickedNotification picked =
+                    SplashNotificationScheduler.pickRandomNotificationGoal(context);
+                SplashNotificationScheduler.savePendingNotificationGoal(context, picked.goalId);
+
                 Intent openIntent = new Intent(context, MainActivity.class);
-                openIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+                openIntent.setAction("com.splash.offline.OPEN_NOTIF_GOAL");
+                openIntent.putExtra(SplashNotificationScheduler.EXTRA_NOTIF_GOAL_ID, picked.goalId);
+                openIntent.setFlags(
+                    Intent.FLAG_ACTIVITY_NEW_TASK
+                        | Intent.FLAG_ACTIVITY_SINGLE_TOP
+                        | Intent.FLAG_ACTIVITY_CLEAR_TOP
+                );
                 int flags = PendingIntent.FLAG_UPDATE_CURRENT;
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                     flags |= PendingIntent.FLAG_IMMUTABLE;
@@ -81,9 +90,9 @@ public class SplashNotificationReceiver extends BroadcastReceiver {
 
                 NotificationCompat.Builder builder = new NotificationCompat.Builder(context, CHANNEL_ID)
                     .setSmallIcon(R.drawable.ic_notif_splash)
-                    .setContentTitle(msg[0])
-                    .setContentText(msg[1])
-                    .setStyle(new NotificationCompat.BigTextStyle().bigText(msg[1]))
+                    .setContentTitle(picked.title)
+                    .setContentText(picked.body)
+                    .setStyle(new NotificationCompat.BigTextStyle().bigText(picked.body))
                     .setPriority(NotificationCompat.PRIORITY_HIGH)
                     .setAutoCancel(true)
                     .setContentIntent(pi);
@@ -115,7 +124,7 @@ public class SplashNotificationReceiver extends BroadcastReceiver {
                 "Recordatorios Splash",
                 NotificationManager.IMPORTANCE_HIGH
             );
-            channel.setDescription("Avisos rápidos, retos y rescate anti-scroll de Splash");
+            channel.setDescription("Avisos Flash, retos y enfoque de Splash");
             NotificationManager manager = context.getSystemService(NotificationManager.class);
             if (manager != null) {
                 manager.createNotificationChannel(channel);

@@ -26,7 +26,7 @@
             android:adjustViewBounds="true"
             android:contentDescription="Splash Bioma"
             android:scaleType="fitCenter"
-            android:src="@mipmap/ic_launcher" />
+            android:src="@drawable/widget_valle_max" />
 
         <TextView
             android:id="@+id/widget_biome_chip"
@@ -85,7 +85,7 @@
                 android:layout_marginTop="2dp"
                 android:ellipsize="end"
                 android:maxLines="1"
-                android:text="2 min · Rápido"
+                android:text="Flash · 2 min"
                 android:textColor="#D8C4AA"
                 android:textSize="11sp" />
         </LinearLayout>
@@ -96,7 +96,7 @@
             android:layout_height="0dp"
             android:layout_marginTop="8dp"
             android:layout_weight="1"
-            android:background="@drawable/widget_goal_medio_light"
+            android:background="@drawable/widget_goal_rapido_light"
             android:gravity="center_vertical"
             android:orientation="vertical"
             android:paddingLeft="12dp"
@@ -110,8 +110,8 @@
                 android:layout_height="wrap_content"
                 android:ellipsize="end"
                 android:maxLines="1"
-                android:text="Caminar cuesta arriba"
-                android:textColor="#EEF8FA"
+                android:text="Postura y agua"
+                android:textColor="#FFF8EE"
                 android:textSize="13sp"
                 android:textStyle="bold" />
 
@@ -122,8 +122,8 @@
                 android:layout_marginTop="2dp"
                 android:ellipsize="end"
                 android:maxLines="1"
-                android:text="15 min · Enfoque"
-                android:textColor="#AED0D7"
+                android:text="Flash · 2 min"
+                android:textColor="#D8C4AA"
                 android:textSize="11sp" />
         </LinearLayout>
     </LinearLayout>

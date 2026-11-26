@@ -33,7 +33,7 @@ public class SplashQuickWidgetProvider extends AppWidgetProvider {
         SharedPreferences prefs = context.getSharedPreferences("splash_widget", Context.MODE_PRIVATE);
         String biomeShort = prefs.getString("biomeShort", "Valle");
         String levelLabel = prefs.getString("levelLabel", "Nv. 1");
-        String weatherLabel = prefs.getString("weatherLabel", "Atardecer");
+        String flashStatus = prefs.getString("flashStatusLabel", prefs.getString("weatherLabel", "Flash 0/2"));
         String themeMode = prefs.getString("themeMode", "auto");
 
         Intent launchIntent = new Intent(context, MainActivity.class);
@@ -74,8 +74,8 @@ public class SplashQuickWidgetProvider extends AppWidgetProvider {
                 views.setInt(R.id.widget_quick_btn_wk, "setBackgroundResource", R.drawable.widget_quick_chip_auto);
             }
 
-            views.setTextViewText(R.id.widget_quick_sub, biomeShort + " " + levelLabel + " · " + weatherLabel);
-            views.setTextViewText(R.id.widget_quick_btn_2m, "2 min");
+            views.setTextViewText(R.id.widget_quick_sub, biomeShort + " " + levelLabel + " · " + flashStatus);
+            views.setTextViewText(R.id.widget_quick_btn_2m, "Flash 2m");
             views.setTextViewText(R.id.widget_quick_btn_15m, "15 min");
             views.setTextViewText(R.id.widget_quick_btn_wk, "30 min");
             views.setOnClickPendingIntent(R.id.widget_quick_root, openAppPending);

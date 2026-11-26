@@ -10,11 +10,13 @@ import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
 import android.graphics.Shader
+import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.toArgb
 import com.splash.offline.SplashBiomeWidgetProvider
 import com.splash.offline.SplashNotificationScheduler
 import com.splash.offline.SplashQuickWidgetProvider
 import com.splash.offline.SplashWidgetProvider
+import com.splash.offline.ui.components.renderBiomeDioramaBitmap
 import java.io.File
 import java.io.FileOutputStream
 import java.time.LocalDate
@@ -137,14 +139,18 @@ class SplashRepository(private val context: Context) {
                         "LARGO" -> GoalCategory.LARGO
                         else -> GoalCategory.RAPIDO
                     }
+                    val cgTitleEs = cg.optString("titleEs")
+                    val cgTitleEn = cg.optString("titleEn", cgTitleEs)
+                    val cgShortEs = cg.optString("titleShortEs").ifBlank { cgTitleEs.take(36) }
+                    val cgShortEn = cg.optString("titleShortEn").ifBlank { cgTitleEn.take(36) }
                     customGoals.add(
                         GoalItem(
                             id = cg.getInt("id"),
-                            titleShortEs = cg.optString("titleEs"),
-                            titleEs = cg.optString("titleEs"),
+                            titleShortEs = cgShortEs,
+                            titleEs = cgTitleEs,
                             subEs = cg.optString("subEs", "Personal"),
-                            titleShortEn = cg.optString("titleEn", cg.optString("titleEs")),
-                            titleEn = cg.optString("titleEn", cg.optString("titleEs")),
+                            titleShortEn = cgShortEn,
+                            titleEn = cgTitleEn,
                             subEn = cg.optString("subEn", "Custom"),
                             category = cat,
                             iconName = cg.optString("iconName", "eco"),
@@ -183,7 +189,8 @@ class SplashRepository(private val context: Context) {
                             category = cat,
                             biomeId = c.optString("biomeId", "valle"),
                             photoPath = c.optString("photoPath", "").takeIf { it.isNotBlank() },
-                            earnedXp = c.optInt("earnedXp", 0)
+                            earnedXp = c.optInt("earnedXp", 0),
+                            note = c.optString("note", "").takeIf { it.isNotBlank() }
                         )
                     )
                 }
@@ -201,16 +208,38 @@ class SplashRepository(private val context: Context) {
                 }
             }
 
-            val weeklyArr = o.optJSONArray("weeklyIds")
-            val weeklyIds = if (weeklyArr != null && weeklyArr.length() == 3) {
-                listOf(weeklyArr.getInt(0), weeklyArr.getInt(1), weeklyArr.getInt(2))
-            } else {
-                listOf(38, 39, 40)
-            }
-
             val weekIso = currentWeekIso()
             val savedWeek = o.optString("todayWeekIso", weekIso)
             val sameWeek = savedWeek == weekIso
+
+            val activeBiomeIdx = o.optInt("activeBiomeIndex", 0).coerceIn(0, SplashCatalogData.BIOMES.lastIndex)
+            val activeBiomeId = SplashCatalogData.BIOMES[activeBiomeIdx].id
+            val quickIds = if (sameDay) {
+                o.optInt("quickGenId", 1) to o.optInt("quickBiomeId", 101)
+            } else {
+                val qGen = mergedCatalog.filter { !it.isHidden && it.category == GoalCategory.RAPIDO && it.biomeExclusive == null }
+                    .randomOrNull()?.id ?: 1
+                val qBio = mergedCatalog.firstOrNull { !it.isHidden && it.biomeExclusive == activeBiomeId && it.category == GoalCategory.RAPIDO }?.id ?: 101
+                qGen to qBio
+            }
+            val medIds = if (sameDay) {
+                o.optInt("medGenId", 21) to o.optInt("medBiomeId", 102)
+            } else {
+                val mGen = mergedCatalog.filter { !it.isHidden && it.category == GoalCategory.MEDIO && it.biomeExclusive == null }
+                    .randomOrNull()?.id ?: 21
+                val mBio = mergedCatalog.firstOrNull { !it.isHidden && it.biomeExclusive == activeBiomeId && it.category == GoalCategory.MEDIO }?.id ?: 102
+                mGen to mBio
+            }
+            val weeklyArr = o.optJSONArray("weeklyIds")
+            val weeklyIds = if (sameWeek && weeklyArr != null && weeklyArr.length() in 1..3) {
+                buildList { for (i in 0 until weeklyArr.length()) add(weeklyArr.getInt(i)) }
+            } else {
+                mergedCatalog.filter { !it.isHidden && it.category == GoalCategory.LARGO }
+                    .shuffled()
+                    .take(3)
+                    .map { it.id }
+                    .ifEmpty { listOf(38, 39, 40) }
+            }
             val savedTimers = mutableMapOf<String, Int>()
             o.optJSONObject("savedTimers")?.let { tObj ->
                 tObj.keys().forEach { k ->
@@ -223,8 +252,8 @@ class SplashRepository(private val context: Context) {
                 lang = lang,
                 themeMode = themeMode,
                 widgetThemePref = widgetTheme,
-                userName = o.optString("userName", "Explorador").ifBlank { "Explorador" },
-                activeBiomeIndex = o.optInt("activeBiomeIndex", 0).coerceIn(0, SplashCatalogData.BIOMES.lastIndex),
+                userName = o.optString("userName", ""),
+                activeBiomeIndex = activeBiomeIdx,
                 unlockedBiomeCount = o.optInt("unlockedBiomeCount", 1).coerceIn(1, SplashCatalogData.BIOMES.size),
                 biomeXpById = xpMap,
                 betaMode = o.optBoolean("betaMode", false),
@@ -233,9 +262,11 @@ class SplashRepository(private val context: Context) {
                 quickUsedToday = if (sameDay) o.optInt("quickUsedToday", 0) else 0,
                 mediumUsedToday = if (sameDay) o.optInt("mediumUsedToday", 0) else 0,
                 weeklyUsedThisWeek = if (sameWeek) o.optInt("weeklyUsedThisWeek", 0) else 0,
-                currentQuickIds = o.optInt("quickGenId", 1) to o.optInt("quickBiomeId", 101),
-                currentMediumIds = o.optInt("medGenId", 21) to o.optInt("medBiomeId", 102),
+                surpriseUsedToday = if (sameDay) o.optInt("surpriseUsedToday", 0) else 0,
+                currentQuickIds = quickIds,
+                currentMediumIds = medIds,
                 currentWeeklyIds = weeklyIds,
+                dailyNotifCount = o.optInt("dailyNotifCount", 4).coerceIn(2, 7),
                 savedTimerRemainingSec = savedTimers,
                 catalog = mergedCatalog,
                 completions = completions,
@@ -263,6 +294,7 @@ class SplashRepository(private val context: Context) {
         })
         o.put("widgetTheme", state.widgetThemePref.wire)
         o.put("userName", state.userName)
+        o.put("dailyNotifCount", state.dailyNotifCount.coerceIn(2, 7))
         o.put("activeBiomeIndex", state.activeBiomeIndex)
         o.put("unlockedBiomeCount", state.unlockedBiomeCount)
         o.put("betaMode", state.betaMode)
@@ -271,6 +303,7 @@ class SplashRepository(private val context: Context) {
         o.put("quickUsedToday", state.quickUsedToday)
         o.put("mediumUsedToday", state.mediumUsedToday)
         o.put("weeklyUsedThisWeek", state.weeklyUsedThisWeek)
+        o.put("surpriseUsedToday", state.surpriseUsedToday)
         o.put("quickGenId", state.currentQuickIds.first)
         o.put("quickBiomeId", state.currentQuickIds.second)
         o.put("medGenId", state.currentMediumIds.first)
@@ -293,7 +326,9 @@ class SplashRepository(private val context: Context) {
                 customArr.put(
                     JSONObject()
                         .put("id", g.id)
+                        .put("titleShortEs", g.titleShortEs)
                         .put("titleEs", g.titleEs)
+                        .put("titleShortEn", g.titleShortEn)
                         .put("titleEn", g.titleEn)
                         .put("subEs", g.subEs)
                         .put("subEn", g.subEn)
@@ -326,6 +361,7 @@ class SplashRepository(private val context: Context) {
                     .put("biomeId", c.biomeId)
                     .put("photoPath", c.photoPath ?: "")
                     .put("earnedXp", c.earnedXp)
+                    .put("note", c.note ?: "")
             )
         }
         o.put("completions", compArr)
@@ -350,10 +386,91 @@ class SplashRepository(private val context: Context) {
         val biome = state.activeBiome
         val levelLabel = (if (isEn) "Lvl. " else "Nv. ") + state.effectiveBiomeLevel
         val streakLabel = SplashStrings.streakLabel(state.lang, state.streakDays)
-        val quickGoal = state.catalog.firstOrNull { it.id == state.currentQuickIds.first }
+        val todayIso = state.todayDateIso.ifBlank { LocalDate.now().toString() }
+
+        val quickBiomeGoal = state.catalog.firstOrNull { it.id == state.currentQuickIds.second }
+        val quickGenGoal = state.catalog.firstOrNull { it.id == state.currentQuickIds.first }
         val medGoal = state.catalog.firstOrNull { it.id == state.currentMediumIds.first }
 
-        renderWidgetBiomeBitmap(biome)
+        val flashTodayLogs = state.completions.filter {
+            it.dateIso == todayIso && it.category == GoalCategory.RAPIDO
+        }
+        val flashUsed = state.quickUsedToday.coerceIn(0, 2)
+
+        fun logDisplayTitle(log: CompletionLog): String {
+            val found = state.catalog.firstOrNull { it.id == log.goalId }
+            return found?.displayShort(state.lang) ?: if (isEn) log.titleEn else log.titleEs
+        }
+
+        val doneSub = if (isEn) "Completed · Flash" else "Completado · Flash"
+        val flash1Title: String
+        val flash1Sub: String
+        val flash1Done: Boolean
+        val flash2Title: String
+        val flash2Sub: String
+        val flash2Done: Boolean
+
+        if (flashUsed >= 2) {
+            val extraGoal = state.extraQuickGoalId?.let { eid -> state.catalog.firstOrNull { it.id == eid } }
+            val firstDone = flashTodayLogs.getOrNull(1)?.let { logDisplayTitle(it) }
+                ?: flashTodayLogs.firstOrNull()?.let { logDisplayTitle(it) }
+                ?: (if (isEn) "Flash goal 1" else "Flash 1 completado")
+            val secondDone = flashTodayLogs.firstOrNull()?.let { logDisplayTitle(it) }
+                ?: (if (isEn) "Flash goal 2" else "Flash 2 completado")
+            flash1Title = if (extraGoal != null) secondDone else firstDone
+            flash1Sub = "$doneSub (2/2)"
+            flash1Done = true
+            if (extraGoal != null) {
+                flash2Title = extraGoal.displayShort(state.lang)
+                flash2Sub = if (isEn) "Extra Flash · 2 min" else "Flash extra · 2 min"
+                flash2Done = false
+            } else {
+                flash2Title = secondDone
+                flash2Sub = "$doneSub (2/2)"
+                flash2Done = true
+            }
+        } else if (flashUsed == 1) {
+            val doneLog = flashTodayLogs.firstOrNull()
+            flash1Title = doneLog?.let { logDisplayTitle(it) }
+                ?: (if (isEn) "Flash goal (1/2)" else "Flash completado (1/2)")
+            flash1Sub = "$doneSub (1/2)"
+            flash1Done = true
+
+            val completedWasBiome = doneLog != null && doneLog.goalId == quickBiomeGoal?.id
+            val nextPending = if (completedWasBiome) {
+                quickGenGoal ?: quickBiomeGoal
+            } else {
+                quickBiomeGoal ?: quickGenGoal
+            }
+            flash2Title = nextPending?.displayShort(state.lang) ?: "Splash"
+            flash2Sub = if (nextPending?.biomeExclusive != null) {
+                "Flash · ${biome.shortName(state.lang)}"
+            } else {
+                "Flash · 2 min"
+            }
+            flash2Done = false
+        } else {
+            val firstPending = quickBiomeGoal ?: quickGenGoal
+            val secondPending = quickGenGoal ?: quickBiomeGoal
+            flash1Title = firstPending?.displayShort(state.lang) ?: "Splash"
+            flash1Sub = if (firstPending?.biomeExclusive != null) {
+                "Flash · ${biome.shortName(state.lang)}"
+            } else {
+                "Flash · 2 min"
+            }
+            flash1Done = false
+            flash2Title = secondPending?.displayShort(state.lang) ?: "Splash"
+            flash2Sub = "Flash · 2 min"
+            flash2Done = false
+        }
+
+        val flashStatusLabel = if (flashUsed >= 2) {
+            if (isEn) "Flash 2/2 · Done" else "Flash 2/2 · Completado"
+        } else {
+            "Flash $flashUsed/2"
+        }
+
+        renderWidgetBiomeBitmap(biome, state.effectiveBiomeLevel, state.activeBiomeXp)
 
         context.getSharedPreferences("splash_widget", Context.MODE_PRIVATE).edit()
             .putString("biomeName", biome.name(state.lang))
@@ -361,11 +478,18 @@ class SplashRepository(private val context: Context) {
             .putString("levelLabel", levelLabel)
             .putString("streakLabel", streakLabel)
             .putString("weatherLabel", if (isEn) "Serene" else "En calma")
-            .putString("goal2Title", quickGoal?.displayShort(state.lang) ?: "Splash")
+            .putString("goal2Title", flash1Title)
             .putString("goal15Title", medGoal?.displayShort(state.lang) ?: "Paseo")
+            .putString("flash1Title", flash1Title)
+            .putString("flash1Sub", flash1Sub)
+            .putBoolean("flash1Done", flash1Done)
+            .putString("flash2Title", flash2Title)
+            .putString("flash2Sub", flash2Sub)
+            .putBoolean("flash2Done", flash2Done)
+            .putString("flashStatusLabel", flashStatusLabel)
             .putString("themeMode", state.widgetThemePref.wire)
             .putBoolean("isEn", isEn)
-            .apply()
+            .commit()
 
         try {
             val awm = AppWidgetManager.getInstance(context)
@@ -381,16 +505,21 @@ class SplashRepository(private val context: Context) {
         val quickPool = JSONArray()
         val medioPool = JSONArray()
         state.catalog.filter { !it.isHidden }.forEach { g ->
+            val itemJson = JSONObject()
+                .put("id", g.id)
+                .put("shortTitle", g.displayShort(state.lang))
+                .put("body", g.displayTitle(state.lang))
             when (g.category) {
-                GoalCategory.RAPIDO -> quickPool.put(g.displayTitle(state.lang))
-                GoalCategory.MEDIO -> medioPool.put(g.displayTitle(state.lang))
+                GoalCategory.RAPIDO -> quickPool.put(itemJson)
+                GoalCategory.MEDIO -> medioPool.put(itemJson)
                 GoalCategory.LARGO -> Unit
             }
         }
         val notifPayload = JSONObject()
             .put("lang", state.lang.code)
-            .put("quickBadge", if (isEn) "Splash · 2 min" else "Splash · Aviso Rápido")
-            .put("medioBadge", if (isEn) "Splash · 15 min" else "Splash · Enfoque")
+            .put("dailyCount", state.dailyNotifCount.coerceIn(2, 7))
+            .put("quickBadge", "Splash · Flash")
+            .put("medioBadge", if (isEn) "Splash · Focus" else "Splash · Enfoque")
             .put("quickPool", quickPool)
             .put("medioPool", medioPool)
 
@@ -407,75 +536,42 @@ class SplashRepository(private val context: Context) {
         SplashNotificationScheduler.scheduleNext(context, forceRescheduleNotifs)
     }
 
-    private fun renderWidgetBiomeBitmap(biome: BiomeDef) {
+    private fun renderWidgetBiomeBitmap(biome: BiomeDef, stage: Int, xp: Int) {
         try {
-            val size = 256
-            val bmp = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
-            val canvas = Canvas(bmp)
-            val bgPaint = Paint(Paint.ANTI_ALIAS_FLAG)
-            bgPaint.shader = LinearGradient(
-                0f, 0f, size.toFloat(), size.toFloat(),
-                biome.accentHex.copy(alpha = 0.22f).toArgb(),
-                biome.secondaryHex.copy(alpha = 0.28f).toArgb(),
-                Shader.TileMode.CLAMP
-            )
-            canvas.drawRoundRect(RectF(8f, 8f, size - 8f, size - 8f), 44f, 44f, bgPaint)
-
-            val cx = size / 2f
-            val cy = size / 2f + 16f
-            val rx = 86f
-            val ry = 44f
-
-            val topPath = Path().apply {
-                moveTo(cx, cy - ry)
-                lineTo(cx + rx, cy)
-                lineTo(cx, cy + ry)
-                lineTo(cx - rx, cy)
-                close()
-            }
-            val leftPath = Path().apply {
-                moveTo(cx - rx, cy)
-                lineTo(cx, cy + ry)
-                lineTo(cx, cy + ry + 26f)
-                lineTo(cx - rx, cy + 26f)
-                close()
-            }
-            val rightPath = Path().apply {
-                moveTo(cx, cy + ry)
-                lineTo(cx + rx, cy)
-                lineTo(cx + rx, cy + 26f)
-                lineTo(cx, cy + ry + 26f)
-                close()
-            }
-
-            val pTop = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = biome.accentHex.toArgb() }
-            val pWater = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = biome.secondaryHex.toArgb() }
-            val pLeft = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFF3E3831.toInt() }
-            val pRight = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFF28241F.toInt() }
-
-            canvas.drawPath(leftPath, pLeft)
-            canvas.drawPath(rightPath, pRight)
-            canvas.drawPath(topPath, pTop)
-
-            val poolPath = Path().apply {
-                moveTo(cx, cy - ry * 0.45f)
-                lineTo(cx + rx * 0.48f, cy)
-                lineTo(cx, cy + ry * 0.45f)
-                lineTo(cx - rx * 0.48f, cy)
-                close()
-            }
-            canvas.drawPath(poolPath, pWater)
-
-            val pPeak = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = biome.tertiaryHex.toArgb() }
-            canvas.drawCircle(cx - 28f, cy - 18f, 18f, pPeak)
-            canvas.drawCircle(cx + 24f, cy - 10f, 14f, pPeak)
-
+            val bmp = renderBiomeDioramaBitmap(
+                biomeId = biome.id,
+                stage = stage,
+                points = xp,
+                widthPx = 320,
+                heightPx = 320,
+                zoom = 1.02f,
+                nightMode = false
+            ).asAndroidBitmap()
             val out = File(context.filesDir, "widget_biome.png")
             FileOutputStream(out).use { fos ->
                 bmp.compress(Bitmap.CompressFormat.PNG, 95, fos)
             }
             bmp.recycle()
         } catch (_: Throwable) {
+            try {
+                val size = 256
+                val bmp = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+                val canvas = Canvas(bmp)
+                val bgPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+                bgPaint.shader = LinearGradient(
+                    0f, 0f, size.toFloat(), size.toFloat(),
+                    biome.accentHex.copy(alpha = 0.22f).toArgb(),
+                    biome.secondaryHex.copy(alpha = 0.28f).toArgb(),
+                    Shader.TileMode.CLAMP
+                )
+                canvas.drawRoundRect(RectF(8f, 8f, size - 8f, size - 8f), 44f, 44f, bgPaint)
+                val out = File(context.filesDir, "widget_biome.png")
+                FileOutputStream(out).use { fos ->
+                    bmp.compress(Bitmap.CompressFormat.PNG, 95, fos)
+                }
+                bmp.recycle()
+            } catch (_: Throwable) {
+            }
         }
     }
 }

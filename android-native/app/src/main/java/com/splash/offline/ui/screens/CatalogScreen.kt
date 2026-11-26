@@ -77,7 +77,7 @@ fun CatalogScreen(
     onFilterChange: (CatalogFilter) -> Unit,
     onOpenCreate: () -> Unit,
     onDismissCreate: () -> Unit,
-    onCreateGoal: (String, GoalCategory, String) -> Unit,
+    onCreateGoal: (String, String, GoalCategory, String) -> Unit,
     onToggleFavorite: (Int) -> Unit,
     onStartGoal: (GoalItem) -> Unit
 ) {
@@ -176,7 +176,7 @@ fun CatalogScreen(
                 val isDark = GoalCardPalettes.isSplashDarkTheme()
                 val chips = listOf(
                     CatalogFilter.ALL to SplashStrings.t(state.lang, "Todos", "All"),
-                    CatalogFilter.RAPIDO to SplashStrings.t(state.lang, "Rápidos", "Quick"),
+                    CatalogFilter.RAPIDO to "Flash",
                     CatalogFilter.MEDIO to SplashStrings.t(state.lang, "Medios", "Medium"),
                     CatalogFilter.LARGO to SplashStrings.t(state.lang, "Largos", "Long"),
                     CatalogFilter.BIOME to SplashStrings.t(state.lang, "Del bioma", "Biome")
@@ -422,9 +422,10 @@ private fun CatalogGoalRow(
 private fun CreateCustomGoalSheet(
     state: SplashUiState,
     onDismiss: () -> Unit,
-    onSave: (String, GoalCategory, String) -> Unit
+    onSave: (String, String, GoalCategory, String) -> Unit
 ) {
     var title by remember { mutableStateOf("") }
+    var description by remember { mutableStateOf("") }
     var category by remember { mutableStateOf(GoalCategory.RAPIDO) }
     var areaEs by remember { mutableStateOf(SplashCatalogData.DEFAULT_AREAS_ES.first()) }
 
@@ -446,9 +447,27 @@ private fun CreateCustomGoalSheet(
             OutlinedTextField(
                 value = title,
                 onValueChange = { title = it },
-                label = { Text(SplashStrings.t(state.lang, "¿Qué quieres hacer fuera de la pantalla?", "What do you want to do off-screen?")) },
-                placeholder = { Text(SplashStrings.t(state.lang, "Ej. Regar las plantas del balcón", "e.g. Water balcony plants")) },
+                label = { Text(SplashStrings.t(state.lang, "Título del objetivo", "Goal title")) },
+                placeholder = { Text(SplashStrings.t(state.lang, "Ej. Regar las plantas", "e.g. Water the plants")) },
                 singleLine = true,
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.fillMaxWidth()
+            )
+            OutlinedTextField(
+                value = description,
+                onValueChange = { description = it },
+                label = { Text(SplashStrings.t(state.lang, "Descripción", "Description")) },
+                placeholder = {
+                    Text(
+                        SplashStrings.t(
+                            state.lang,
+                            "Ej. Salir al balcón 5 min a cuidar las plantas sin mirar el móvil",
+                            "e.g. Spend 5 min caring for your balcony plants without looking at your phone"
+                        )
+                    )
+                },
+                minLines = 2,
+                maxLines = 4,
                 shape = RoundedCornerShape(16.dp),
                 modifier = Modifier.fillMaxWidth()
             )
@@ -460,7 +479,7 @@ private fun CreateCustomGoalSheet(
             val isDark = GoalCardPalettes.isSplashDarkTheme()
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                 listOf(
-                    GoalCategory.RAPIDO to SplashStrings.t(state.lang, "Rápido", "Quick"),
+                    GoalCategory.RAPIDO to "Flash",
                     GoalCategory.MEDIO to SplashStrings.t(state.lang, "Medio", "Medium"),
                     GoalCategory.LARGO to SplashStrings.t(state.lang, "Largo", "Long")
                 ).forEach { (c, lbl) ->
@@ -500,7 +519,7 @@ private fun CreateCustomGoalSheet(
 
             Spacer(Modifier.height(4.dp))
             Button(
-                onClick = { onSave(title, category, areaEs) },
+                onClick = { onSave(title, description, category, areaEs) },
                 enabled = title.trim().isNotEmpty(),
                 shape = CircleShape,
                 modifier = Modifier.fillMaxWidth().height(48.dp)
