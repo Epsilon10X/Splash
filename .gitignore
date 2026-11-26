@@ -14,3 +14,12 @@ keystore.properties
 android/keystore/
 .DS_Store
 Thumbs.db
+
+.netlify/
+android-native/.gradle/
+android-native/.kotlin/
+android-native/build/
+android-native/app/build/
+android-native/.idea/
+local.properties
+promo/
