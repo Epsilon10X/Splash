@@ -1,5 +1,10 @@
 # Splash — Real Productivity to Break Daily Autopilot
 
+> **Want to install the app on Android? (Do NOT click `Code -> Download ZIP`)**
+>
+> - **Download APK directly (1 tap):** [**Splash-release.apk (Latest Android App)**](https://github.com/Epsilon10X/Splash/releases/latest/download/Splash-release.apk)
+> - **Clean Download Page:** [**epsilon10x.github.io/Splash**](https://epsilon10x.github.io/Splash/)
+
 [English](#english) · [Español](#español)
 
 ---
@@ -24,7 +29,7 @@ Available in **English** and **Español** from *Settings / Ajustes*.
 
 ### Download & Install (Android)
 
-1. Go to the latest **[GitHub Releases](https://github.com/Epsilon10X/Splash/releases/latest)** and download `Splash-*.apk`.
+1. Tap **[Splash-release.apk](https://github.com/Epsilon10X/Splash/releases/latest/download/Splash-release.apk)** (or open **[epsilon10x.github.io/Splash](https://epsilon10x.github.io/Splash/)**).
 2. Open the APK on Android and allow installation from this source.
 3. From `v2.0.17` onward, Splash automatically notifies you whenever a new update is released.
 
@@ -62,8 +67,8 @@ Disponible en **English** y **Español** desde *Ajustes / Settings*.
 
 ### Descarga e instalación (Android)
 
-1. Entra en la última versión en **[GitHub Releases](https://github.com/Epsilon10X/Splash/releases/latest)** y descarga el archivo `Splash-*.apk`.
-2. Ábrelo en tu Android y acepta instalar desde esta fuente.
+1. Pulsa directamente en **[Splash-release.apk](https://github.com/Epsilon10X/Splash/releases/latest/download/Splash-release.apk)** (o entra en **[epsilon10x.github.io/Splash](https://epsilon10x.github.io/Splash/)**). *(No pulses `Code -> Download ZIP`, eso baja el código fuente).*
+2. Abre el archivo en tu Android y acepta instalar desde esta fuente.
 3. A partir de `v2.0.17`, la propia app te avisará automáticamente cuando salga una nueva actualización.
 
 ### Compilar APK localmente

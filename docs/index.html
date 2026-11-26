@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Splash — Break Daily Autopilot</title>
+  <meta name="description" content="Break daily autopilot with real micro-challenges for productivity, focus, and 3D biomes on Android." />
+  <style>
+    :root {
+      --bg: #F6F4EC;
+      --surface: #FFFFFF;
+      --surface-soft: #EEF0E6;
+      --text: #1B211A;
+      --muted: #525D50;
+      --primary: #2C7A3F;
+      --primary-hover: #246634;
+      --on-primary: #FFFFFF;
+      --pill-bg: #DCECD9;
+      --pill-fg: #184C24;
+      --border: #DEE2D5;
+      --shadow: 0 14px 40px rgba(24, 38, 22, 0.08);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0E1113;
+        --surface: #171C1F;
+        --surface-soft: #20272B;
+        --text: #EFF3EC;
+        --muted: #A9B5AA;
+        --primary: #7AD98A;
+        --primary-hover: #8EE49C;
+        --on-primary: #092610;
+        --pill-bg: #1E3824;
+        --pill-fg: #A8F0B4;
+        --border: #283035;
+        --shadow: 0 18px 48px rgba(0, 0, 0, 0.45);
+      }
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      padding: 24px 16px 40px;
+    }
+
+    main {
+      width: 100%;
+      max-width: 540px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .logo {
+      width: 44px;
+      height: 44px;
+      border-radius: 14px;
+      flex-shrink: 0;
+      box-shadow: 0 6px 18px rgba(44, 122, 63, 0.22);
+    }
+
+    .brand-name {
+      font-size: 20px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+    }
+
+    .brand-sub {
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 600;
+    }
+
+    .lang-toggle {
+      display: inline-flex;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 4px;
+      gap: 4px;
+    }
+
+    .lang-btn {
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      font-weight: 700;
+      font-size: 13px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      cursor: pointer;
+    }
+
+    .lang-btn.active {
+      background: var(--pill-bg);
+      color: var(--pill-fg);
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 28px;
+      padding: 24px;
+      box-shadow: var(--shadow);
+    }
+
+    .badge {
+      display: inline-block;
+      background: var(--pill-bg);
+      color: var(--pill-fg);
+      font-size: 12px;
+      font-weight: 700;
+      padding: 6px 12px;
+      border-radius: 999px;
+      margin-bottom: 14px;
+    }
+
+    h1 {
+      margin: 0 0 10px;
+      font-size: 28px;
+      line-height: 1.16;
+      letter-spacing: -0.03em;
+    }
+
+    .lead {
+      margin: 0 0 20px;
+      color: var(--muted);
+      font-size: 15px;
+      line-height: 1.5;
+    }
+
+    .cta {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      width: 100%;
+      padding: 16px 20px;
+      border-radius: 999px;
+      background: var(--primary);
+      color: var(--on-primary);
+      text-decoration: none;
+      font-size: 16px;
+      font-weight: 800;
+      transition: transform 0.14s ease, background 0.14s ease;
+    }
+
+    .cta:hover {
+      background: var(--primary-hover);
+      transform: translateY(-1px);
+    }
+
+    .cta-meta {
+      margin-top: 10px;
+      text-align: center;
+      font-size: 13px;
+      color: var(--muted);
+      font-weight: 600;
+    }
+
+    .pills {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    .pill {
+      background: var(--surface-soft);
+      border-radius: 18px;
+      padding: 12px 14px;
+    }
+
+    .pill strong {
+      display: block;
+      font-size: 13px;
+      margin-bottom: 2px;
+    }
+
+    .pill span {
+      display: block;
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.35;
+    }
+
+    h2 {
+      margin: 0 0 12px;
+      font-size: 17px;
+      letter-spacing: -0.01em;
+    }
+
+    .steps {
+      margin: 0;
+      padding-left: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.45;
+    }
+
+    .steps strong {
+      color: var(--text);
+    }
+
+    .footer-links {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 14px;
+      font-size: 13px;
+    }
+
+    .footer-links a {
+      color: var(--muted);
+      text-decoration: none;
+      font-weight: 600;
+    }
+
+    .footer-links a:hover {
+      color: var(--text);
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="topbar">
+      <div class="brand">
+        <svg class="logo" viewBox="0 0 64 64" aria-hidden="true">
+          <defs>
+            <linearGradient id="splashGrad" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stop-color="#38A169" />
+              <stop offset="100%" stop-color="#1E6091" />
+            </linearGradient>
+          </defs>
+          <rect width="64" height="64" rx="16" fill="url(#splashGrad)" />
+          <path d="M41.5 21.5c-2.6-2.2-6-3.2-9.8-3.2-6.1 0-10.2 3.1-10.2 7.6 0 4.8 4.4 6.7 10.7 8 4.6 1 6.7 2 6.7 4.2 0 2.3-2.5 3.8-6.4 3.8-3.8 0-7.1-1.3-9.7-3.6l-3.6 4.7c3.3 2.9 7.8 4.6 13.1 4.6 7.5 0 12.6-3.7 12.6-9.2 0-5.1-3.9-7.4-11.2-8.9-4.5-.9-6.2-1.8-6.2-3.6 0-1.9 2.1-3.1 5.2-3.1 2.9 0 5.5.9 7.6 2.6l1.2-3.9z" fill="#FFFFFF" />
+        </svg>
+        <div>
+          <div class="brand-name">Splash</div>
+          <div class="brand-sub" data-i18n="brandSub">Android · Offline Productivity</div>
+        </div>
+      </div>
+
+      <div class="lang-toggle" role="group" aria-label="Language">
+        <button class="lang-btn" id="btnEn" type="button">EN</button>
+        <button class="lang-btn" id="btnEs" type="button">ES</button>
+      </div>
+    </div>
+
+    <section class="card">
+      <div class="badge" id="versionBadge">v2.0.17 · Android APK</div>
+      <h1 data-i18n="heroTitle">Break daily autopilot and get real things done</h1>
+      <p class="lead" data-i18n="heroLead">
+        Open Splash, pick a 2 min, 15 min, or weekly real-world challenge, and get back to your day in under 10 seconds. Every completed habit levels up 10 interactive 3D biomes.
+      </p>
+
+      <a class="cta" id="downloadBtn" href="https://github.com/Epsilon10X/Splash/releases/latest/download/Splash-release.apk">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M12 3v12" />
+          <path d="m7 11 5 5 5-5" />
+          <path d="M5 20h14" />
+        </svg>
+        <span data-i18n="downloadCta">Download Splash APK</span>
+      </a>
+      <div class="cta-meta" id="downloadMeta">Splash-release.apk · 18.0 MB · 100% Free &amp; Ad-Free</div>
+
+      <div class="pills">
+        <div class="pill">
+          <strong data-i18n="f1Title">Time-boxed blocks</strong>
+          <span data-i18n="f1Body">2 min quick wins, 15 min focus timer, and weekly goals</span>
+        </div>
+        <div class="pill">
+          <strong data-i18n="f2Title">10 3D Biomes</strong>
+          <span data-i18n="f2Body">8 visual evolution stages + explorable map</span>
+        </div>
+        <div class="pill">
+          <strong data-i18n="f3Title">3 Home Widgets</strong>
+          <span data-i18n="f3Body">Challenges, Biome progress, and Quick Timer</span>
+        </div>
+        <div class="pill">
+          <strong data-i18n="f4Title">Auto-Updates</strong>
+          <span data-i18n="f4Body">Built-in 1-tap updates from GitHub Releases</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2 data-i18n="installTitle">How to install on Android (30 sec)</h2>
+      <ol class="steps">
+        <li data-i18n="step1">Tap <strong>Download Splash APK</strong> above (only downloads the single Android installer file).</li>
+        <li data-i18n="step2">Open the downloaded <strong>Splash-release.apk</strong> and tap <strong>Allow from this source</strong> if Android asks.</li>
+        <li data-i18n="step3">Tap <strong>Install</strong>. Future versions notify you automatically inside Splash.</li>
+      </ol>
+    </section>
+
+    <div class="footer-links">
+      <a href="https://github.com/Epsilon10X/Splash/releases/latest" data-i18n="linkRelease">Release Notes</a>
+      <a href="https://github.com/Epsilon10X/Splash/blob/main/promo/Splash-TikTok-Promo-30s.mp4" data-i18n="linkPromo">Watch 30s Promo</a>
+      <a href="https://github.com/Epsilon10X/Splash" data-i18n="linkRepo">Source on GitHub</a>
+    </div>
+  </main>
+
+  <script>
+    const copy = {
+      en: {
+        brandSub: "Android · Offline Productivity",
+        heroTitle: "Break daily autopilot and get real things done",
+        heroLead: "Open Splash, pick a 2 min, 15 min, or weekly real-world challenge, and get back to your day in under 10 seconds. Every completed habit levels up 10 interactive 3D biomes.",
+        downloadCta: "Download Splash APK",
+        metaSuffix: "100% Free & Ad-Free",
+        f1Title: "Time-boxed blocks",
+        f1Body: "2 min quick wins, 15 min focus timer, and weekly goals",
+        f2Title: "10 3D Biomes",
+        f2Body: "8 visual evolution stages + explorable map",
+        f3Title: "3 Home Widgets",
+        f3Body: "Challenges, Biome progress, and Quick Timer",
+        f4Title: "Auto-Updates",
+        f4Body: "Built-in 1-tap updates from GitHub Releases",
+        installTitle: "How to install on Android (30 sec)",
+        step1: "Tap <strong>Download Splash APK</strong> above (downloads only the Android installer file).",
+        step2: "Open <strong>Splash-release.apk</strong> and tap <strong>Allow from this source</strong> if Android asks.",
+        step3: "Tap <strong>Install</strong>. Future updates will prompt automatically inside Splash.",
+        linkRelease: "Release Notes",
+        linkPromo: "Watch 30s Promo",
+        linkRepo: "Source on GitHub"
+      },
+      es: {
+        brandSub: "Android · Productividad Offline",
+        heroTitle: "Sal del piloto automático y recupera tu día",
+        heroLead: "Entra en Splash, elige un reto real de 2 min, 15 min o semanal y vuelve a tu vida en menos de 10 segundos. Cada hábito completado hace crecer 10 biomas 3D interactivos.",
+        downloadCta: "Descargar Splash APK",
+        metaSuffix: "100 % Gratis y Sin Anuncios",
+        f1Title: "Bloques por tiempo",
+        f1Body: "Retos rápidos de 2 min, temporizador de 15 min y semanales",
+        f2Title: "10 Biomas 3D",
+        f2Body: "8 etapas de evolución visual y mapa explorable",
+        f3Title: "3 Widgets nativos",
+        f3Body: "Retos, progreso de bioma y temporizador rápido",
+        f4Title: "Auto-actualizable",
+        f4Body: "Te avisa dentro de la app para actualizar en 1 toque",
+        installTitle: "Cómo instalarla en Android (30 seg)",
+        step1: "Pulsa <strong>Descargar Splash APK</strong> arriba (solo descarga el instalador oficial de la app).",
+        step2: "Abre el archivo <strong>Splash-release.apk</strong> y activa <strong>Permitir desde esta fuente</strong> si Android lo pide.",
+        step3: "Pulsa <strong>Instalar</strong>. A partir de esta versión te avisará sola cuando haya mejoras.",
+        linkRelease: "Notas de la versión",
+        linkPromo: "Ver vídeo promo (30s)",
+        linkRepo: "Código en GitHub"
+      }
+    };
+
+    let currentLang = (navigator.language || "en").toLowerCase().startsWith("es") ? "es" : "en";
+    let latestVersion = "v2.0.17";
+    let latestSizeMb = "18.0 MB";
+
+    function render() {
+      const dict = copy[currentLang];
+      document.documentElement.lang = currentLang;
+      document.getElementById("btnEn").classList.toggle("active", currentLang === "en");
+      document.getElementById("btnEs").classList.toggle("active", currentLang === "es");
+      document.querySelectorAll("[data-i18n]").forEach((el) => {
+        const key = el.getAttribute("data-i18n");
+        if (dict[key]) el.innerHTML = dict[key];
+      });
+      document.getElementById("versionBadge").textContent = `${latestVersion} · Android APK`;
+      document.getElementById("downloadMeta").textContent = `Splash-release.apk · ${latestSizeMb} · ${dict.metaSuffix}`;
+    }
+
+    document.getElementById("btnEn").addEventListener("click", () => { currentLang = "en"; render(); });
+    document.getElementById("btnEs").addEventListener("click", () => { currentLang = "es"; render(); });
+    render();
+
+    fetch("https://api.github.com/repos/Epsilon10X/Splash/releases/latest")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!data || !Array.isArray(data.assets)) return;
+        const apk = data.assets.find((a) => a.name === "Splash-release.apk")
+          || data.assets.find((a) => /release.*\.apk$/i.test(a.name || ""))
+          || data.assets.find((a) => /\.apk$/i.test(a.name || ""));
+        if (data.tag_name) latestVersion = data.tag_name;
+        if (apk && apk.browser_download_url) {
+          document.getElementById("downloadBtn").href = apk.browser_download_url;
+          if (apk.size) {
+            latestSizeMb = `${(apk.size / (1024 * 1024)).toFixed(1)} MB`;
+          }
+        }
+        render();
+      })
+      .catch(() => {});
+  </script>
+</body>
+</html>
