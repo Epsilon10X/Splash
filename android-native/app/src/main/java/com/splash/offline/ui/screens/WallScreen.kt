@@ -143,7 +143,8 @@ fun WallScreen(
     onPickGalleryPhoto: () -> Unit,
     onExportPhotoToGallery: (String, String) -> Unit,
     onDeleteMemoryPhoto: (Long) -> Unit,
-    onUpdateMemoryBiome: (Long, String) -> Unit
+    onUpdateMemoryBiome: (Long, String) -> Unit,
+    onShowToast: (String) -> Unit
 ) {
     var viewerTarget by remember { mutableStateOf<MemoryViewerTarget?>(null) }
 
@@ -303,6 +304,7 @@ fun WallScreen(
                             betaMode = state.betaMode,
                             biomeXpById = state.biomeXpById,
                             onBiomeSelected = onOpenBiome3D,
+                            onLockedBiomeTapped = onShowToast,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(360.dp)

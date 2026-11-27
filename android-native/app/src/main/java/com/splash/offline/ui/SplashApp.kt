@@ -8,6 +8,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
@@ -281,7 +282,8 @@ fun SplashApp(
                             onPickGalleryPhoto = { pickGalleryLauncher.launch("image/*") },
                             onExportPhotoToGallery = { path, title -> viewModel.exportMemoryPhotoToGallery(path, title) },
                             onDeleteMemoryPhoto = { id -> viewModel.deleteMemoryPhoto(id) },
-                            onUpdateMemoryBiome = { id, biomeId -> viewModel.updateMemoryBiome(id, biomeId) }
+                            onUpdateMemoryBiome = { id, biomeId -> viewModel.updateMemoryBiome(id, biomeId) },
+                            onShowToast = { msg -> viewModel.showToast(msg) }
                         )
 
                         AppTab.CATALOGO -> CatalogScreen(
@@ -427,11 +429,14 @@ fun SplashApp(
             // Fullscreen Overlays
             AnimatedVisibility(
                 visible = state.is3DOpen,
-                enter = fadeIn(tween(320, easing = FastOutSlowInEasing)) + scaleIn(
-                    initialScale = 0.88f,
-                    animationSpec = spring(dampingRatio = 0.86f, stiffness = Spring.StiffnessMediumLow)
+                enter = fadeIn(tween(260, easing = FastOutSlowInEasing)) + scaleIn(
+                    initialScale = 0.92f,
+                    animationSpec = tween(300, easing = CubicBezierEasing(0.22f, 1f, 0.36f, 1f))
                 ),
-                exit = fadeOut(tween(260, easing = FastOutSlowInEasing)) + scaleOut(targetScale = 0.92f)
+                exit = fadeOut(tween(220, easing = FastOutSlowInEasing)) + scaleOut(
+                    targetScale = 0.94f,
+                    animationSpec = tween(220, easing = FastOutSlowInEasing)
+                )
             ) {
                 Biome3DExplorerOverlay(
                     state = state,

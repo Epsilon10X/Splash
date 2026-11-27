@@ -149,7 +149,7 @@ fun SettingsSheet(
                         style = MaterialTheme.typography.headlineSmall
                     )
                     Text(
-                        text = "Splash v2.0.24 · Material 3 Expressive 1.5",
+                        text = "Splash v2.0.26 · Material 3 Expressive 1.5",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

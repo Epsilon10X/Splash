@@ -11,8 +11,10 @@ import android.graphics.RadialGradient
 import android.graphics.RectF
 import android.graphics.Shader
 import android.graphics.Typeface
+import android.util.LruCache
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
@@ -22,6 +24,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -30,7 +33,6 @@ import androidx.compose.foundation.gestures.calculateCentroid
 import androidx.compose.foundation.gestures.calculateCentroidSize
 import androidx.compose.foundation.gestures.calculatePan
 import androidx.compose.foundation.gestures.calculateZoom
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -50,10 +52,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -61,13 +66,15 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChanged
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import com.splash.offline.data.AppLanguage
@@ -88,8 +95,10 @@ import kotlin.math.pow
 import kotlin.math.roundToInt
 import kotlin.math.sin
 import kotlin.math.sqrt
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 private const val MAP_W = 960f
 private const val MAP_H = 680f
@@ -445,6 +454,14 @@ private object WorldMapCache {
 
     fun projectIso(gx: Float, gy: Float, wz: Float, elevPx: Float): Pair<Float, Float> =
         (ORIGIN_X + (gx - gy) * HALF_W) to (ORIGIN_Y + (gx + gy) * HALF_H - wz * elevPx)
+
+    private val renderedMapCache = LruCache<String, RenderedMapHolder>(6)
+
+    fun getCachedMap(key: String): RenderedMapHolder? = renderedMapCache.get(key)
+
+    fun putCachedMap(key: String, holder: RenderedMapHolder) {
+        renderedMapCache.put(key, holder)
+    }
 }
 
 @Composable
@@ -458,23 +475,49 @@ fun WorldMapCanvas(
     betaMode: Boolean,
     biomeXpById: Map<String, Int>,
     onBiomeSelected: (Int) -> Unit,
+    onLockedBiomeTapped: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val isDark = MaterialTheme.colorScheme.background == Color.Black
     val activeBiome = SplashCatalogData.BIOMES.getOrElse(activeBiomeIndex) { SplashCatalogData.BIOMES.first() }
     val activeId = activeBiome.id
+    val mapKey = "${mapStyle.name}|$showAllColor|$activeId|$activeBiomeLevel|$unlockedCount|$betaMode|$isDark|${lang.code}"
 
-    val renderedMap = remember(mapStyle, showAllColor, activeId, activeBiomeLevel, unlockedCount, betaMode, isDark, lang) {
-        renderContinentBitmap(
-            lang = lang,
-            style = mapStyle,
-            showAllColor = showAllColor,
-            activeBiomeId = activeId,
-            activeLevel = activeBiomeLevel,
-            unlockedCount = unlockedCount,
-            betaMode = betaMode,
-            isDark = isDark
+    var renderedMap by remember {
+        mutableStateOf(
+            WorldMapCache.getCachedMap(mapKey) ?: renderContinentBitmap(
+                lang = lang,
+                style = mapStyle,
+                showAllColor = showAllColor,
+                activeBiomeId = activeId,
+                activeLevel = activeBiomeLevel,
+                unlockedCount = unlockedCount,
+                betaMode = betaMode,
+                isDark = isDark
+            ).also { WorldMapCache.putCachedMap(mapKey, it) }
         )
+    }
+
+    LaunchedEffect(mapKey) {
+        val cached = WorldMapCache.getCachedMap(mapKey)
+        if (cached != null) {
+            renderedMap = cached
+        } else {
+            val fresh = withContext(Dispatchers.Default) {
+                renderContinentBitmap(
+                    lang = lang,
+                    style = mapStyle,
+                    showAllColor = showAllColor,
+                    activeBiomeId = activeId,
+                    activeLevel = activeBiomeLevel,
+                    unlockedCount = unlockedCount,
+                    betaMode = betaMode,
+                    isDark = isDark
+                )
+            }
+            WorldMapCache.putCachedMap(mapKey, fresh)
+            renderedMap = fresh
+        }
     }
 
     var viewportSize by remember { mutableStateOf(IntSize.Zero) }
@@ -482,17 +525,28 @@ fun WorldMapCanvas(
     val panXAnim = remember { Animatable(0f) }
     val panYAnim = remember { Animatable(0f) }
     val enterRingProgress = remember { Animatable(0f) }
+    val mapAlphaAnim = remember { Animatable(1f) }
     var enteringBiomeMapPos by remember { mutableStateOf<Pair<Float, Float>?>(null) }
+    var isLockedPulse by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
-    fun clampPan(px: Float, py: Float, nextZoom: Float): Pair<Float, Float> {
-        if (viewportSize.width <= 0 || viewportSize.height <= 0) return 0f to 0f
-        val fitScale = min(viewportSize.width / MAP_W, viewportSize.height / MAP_H)
+    val latestRenderedMap = rememberUpdatedState(renderedMap)
+    val latestMapStyle = rememberUpdatedState(mapStyle)
+    val latestUnlockedCount = rememberUpdatedState(unlockedCount)
+    val latestBetaMode = rememberUpdatedState(betaMode)
+    val latestLang = rememberUpdatedState(lang)
+    val latestOnBiomeSelected = rememberUpdatedState(onBiomeSelected)
+    val latestOnLockedBiomeTapped = rememberUpdatedState(onLockedBiomeTapped)
+    val latestViewportSize = rememberUpdatedState(viewportSize)
+
+    fun clampPanForSize(px: Float, py: Float, nextZoom: Float, size: IntSize): Pair<Float, Float> {
+        if (size.width <= 0 || size.height <= 0) return 0f to 0f
+        val fitScale = min(size.width / MAP_W, size.height / MAP_H)
         val totalScale = fitScale * nextZoom
         val drawW = MAP_W * totalScale
         val drawH = MAP_H * totalScale
-        val maxPanX = max(0f, (drawW - viewportSize.width) * 0.5f)
-        val maxPanY = max(0f, (drawH - viewportSize.height) * 0.5f)
+        val maxPanX = max(0f, (drawW - size.width) * 0.5f)
+        val maxPanY = max(0f, (drawH - size.height) * 0.5f)
         return px.coerceIn(-maxPanX, maxPanX) to py.coerceIn(-maxPanY, maxPanY)
     }
 
@@ -511,7 +565,7 @@ fun WorldMapCanvas(
         val (cxPan, cyPan) = if (clampedZoom <= 1.01f) {
             0f to 0f
         } else {
-            clampPan(panXAnim.value * ratio, panYAnim.value * ratio, clampedZoom)
+            clampPanForSize(panXAnim.value * ratio, panYAnim.value * ratio, clampedZoom, viewportSize)
         }
         val animSpec = spring<Float>(dampingRatio = 0.85f, stiffness = Spring.StiffnessMediumLow)
         scope.launch {
@@ -519,6 +573,10 @@ fun WorldMapCanvas(
             launch { panXAnim.animateTo(cxPan, animSpec) }
             launch { panYAnim.animateTo(cyPan, animSpec) }
         }
+    }
+
+    val showResetZoom by remember {
+        derivedStateOf { zoomAnim.value > 1.06f && enteringBiomeMapPos == null }
     }
 
     val oceanBg = if (isDark) {
@@ -537,12 +595,19 @@ fun WorldMapCanvas(
                 shape = RoundedCornerShape(28.dp)
             )
             .onSizeChanged { viewportSize = it }
-            .pointerInput(viewportSize, enteringBiomeMapPos) {
-                if (enteringBiomeMapPos != null) return@pointerInput
+            .pointerInput(Unit) {
                 val touchSlop = viewConfiguration.touchSlop
+                val tapSlop = max(touchSlop * 1.5f, 22f)
                 awaitEachGesture {
-                    awaitFirstDown(requireUnconsumed = false)
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    if (enteringBiomeMapPos != null && !isLockedPulse) return@awaitEachGesture
+
+                    val downPos = down.position
+                    val downTimeMs = System.currentTimeMillis()
+                    var maxPointers = 1
+                    var maxMoveDist = 0f
                     var pastTouchSlop = false
+                    var wasCanceledByParent = false
                     var zoomAccum = 1f
                     var panAccum = Offset.Zero
                     var curZoom = zoomAnim.value
@@ -551,10 +616,20 @@ fun WorldMapCanvas(
 
                     do {
                         val event = awaitPointerEvent()
-                        val canceled = event.changes.any { it.isConsumed }
-                        if (canceled) break
+                        val consumedByOther = event.changes.any { it.isConsumed }
+                        if (consumedByOther) {
+                            wasCanceledByParent = true
+                            break
+                        }
 
-                        val pressedCount = event.changes.count { it.pressed }
+                        val pressedChanges = event.changes.filter { it.pressed }
+                        val pressedCount = pressedChanges.size
+                        if (pressedCount > maxPointers) maxPointers = pressedCount
+                        if (pressedCount == 1 && maxPointers == 1) {
+                            val dist = (pressedChanges[0].position - downPos).getDistance()
+                            if (dist > maxMoveDist) maxMoveDist = dist
+                        }
+
                         val zoomChange = event.calculateZoom()
                         val panChange = event.calculatePan()
                         val canSinglePan = curZoom > 1.02f
@@ -570,11 +645,12 @@ fun WorldMapCanvas(
                         }
 
                         if (pastTouchSlop && (pressedCount >= 2 || canSinglePan)) {
-                            if (viewportSize.width > 0 && viewportSize.height > 0 && (zoomChange != 1f || panChange != Offset.Zero)) {
+                            val vp = latestViewportSize.value
+                            if (vp.width > 0 && vp.height > 0 && (zoomChange != 1f || panChange != Offset.Zero)) {
                                 val nextZoom = (curZoom * zoomChange).coerceIn(1.0f, 3.6f)
                                 val centroid = event.calculateCentroid(useCurrent = false)
-                                val halfW = viewportSize.width * 0.5f
-                                val halfH = viewportSize.height * 0.5f
+                                val halfW = vp.width * 0.5f
+                                val halfH = vp.height * 0.5f
                                 val ratio = nextZoom / curZoom
                                 val rawPanX = if (centroid != Offset.Unspecified) {
                                     (centroid.x - halfW) * (1f - ratio) + curPanX * ratio + panChange.x
@@ -586,7 +662,7 @@ fun WorldMapCanvas(
                                 } else {
                                     curPanY + panChange.y
                                 }
-                                val (cxPan, cyPan) = clampPan(rawPanX, rawPanY, nextZoom)
+                                val (cxPan, cyPan) = clampPanForSize(rawPanX, rawPanY, nextZoom, vp)
                                 curZoom = nextZoom
                                 curPanX = cxPan
                                 curPanY = cyPan
@@ -601,109 +677,141 @@ fun WorldMapCanvas(
                             }
                         }
                     } while (event.changes.any { it.pressed })
-                }
-            }
-            .pointerInput(renderedMap, mapStyle, viewportSize, unlockedCount, betaMode, enteringBiomeMapPos) {
-                detectTapGestures(
-                    onDoubleTap = { tapOffset ->
-                        if (enteringBiomeMapPos != null || viewportSize.width <= 0 || viewportSize.height <= 0) return@detectTapGestures
-                        val animSpec = spring<Float>(dampingRatio = 0.85f, stiffness = Spring.StiffnessMediumLow)
-                        if (zoomAnim.value > 1.35f) {
+
+                    if (pastTouchSlop) {
+                        if (zoomAnim.value < 1.05f) {
+                            val resetSpec = spring<Float>(dampingRatio = 0.85f, stiffness = Spring.StiffnessMediumLow)
                             scope.launch {
-                                launch { zoomAnim.animateTo(1.0f, animSpec) }
-                                launch { panXAnim.animateTo(0f, animSpec) }
-                                launch { panYAnim.animateTo(0f, animSpec) }
-                            }
-                        } else {
-                            val targetZoom = 2.3f
-                            val ratio = targetZoom / zoomAnim.value.coerceAtLeast(1f)
-                            val halfW = viewportSize.width * 0.5f
-                            val halfH = viewportSize.height * 0.5f
-                            val rawPanX = (tapOffset.x - halfW) * (1f - ratio) + panXAnim.value * ratio
-                            val rawPanY = (tapOffset.y - halfH) * (1f - ratio) + panYAnim.value * ratio
-                            val (cxPan, cyPan) = clampPan(rawPanX, rawPanY, targetZoom)
-                            scope.launch {
-                                launch { zoomAnim.animateTo(targetZoom, animSpec) }
-                                launch { panXAnim.animateTo(cxPan, animSpec) }
-                                launch { panYAnim.animateTo(cyPan, animSpec) }
+                                launch { zoomAnim.animateTo(1.0f, resetSpec) }
+                                launch { panXAnim.animateTo(0f, resetSpec) }
+                                launch { panYAnim.animateTo(0f, resetSpec) }
                             }
                         }
-                    },
-                    onTap = { tapOffset ->
-                        if (enteringBiomeMapPos != null || viewportSize.width <= 0 || viewportSize.height <= 0) return@detectTapGestures
-                        val fitScale = min(viewportSize.width / MAP_W, viewportSize.height / MAP_H)
-                        val totalScale = fitScale * zoomAnim.value
-                        val drawW = MAP_W * totalScale
-                        val drawH = MAP_H * totalScale
-                        val drawLeft = (viewportSize.width - drawW) * 0.5f + panXAnim.value
-                        val drawTop = (viewportSize.height - drawH) * 0.5f + panYAnim.value
-                        val mapX = (tapOffset.x - drawLeft) / totalScale
-                        val mapY = (tapOffset.y - drawTop) / totalScale
-                        val hitId = renderedMap.hitTest(mapX, mapY, mapStyle) ?: return@detectTapGestures
-                        val biomeIdx = SplashCatalogData.BIOMES.indexOfFirst { it.id == hitId }
-                        if (biomeIdx >= 0 && (betaMode || biomeIdx < unlockedCount)) {
-                            val zone = WorldMapCache.zoneById[hitId]
-                            val (zx, zy) = if (zone != null) zoneMapCenter(zone, mapStyle) else (mapX to mapY)
-                            val targetZoom = 2.85f
-                            val totalTargetScale = fitScale * targetZoom
-                            val rawPanX = (MAP_W * 0.5f - zx) * totalTargetScale
-                            val rawPanY = (MAP_H * 0.5f - zy) * totalTargetScale
-                            val (cPanX, cPanY) = clampPan(rawPanX, rawPanY, targetZoom)
+                    } else if (!wasCanceledByParent && maxPointers == 1 && maxMoveDist <= tapSlop &&
+                        (System.currentTimeMillis() - downTimeMs) < 500L
+                    ) {
+                        val vp = latestViewportSize.value
+                        if (vp.width > 0 && vp.height > 0) {
+                            val fitScale = min(vp.width / MAP_W, vp.height / MAP_H)
+                            val totalScale = fitScale * zoomAnim.value
+                            val mapX = MAP_W * 0.5f + (downPos.x - vp.width * 0.5f - panXAnim.value) / totalScale
+                            val mapY = MAP_H * 0.5f + (downPos.y - vp.height * 0.5f - panYAnim.value) / totalScale
+                            val style = latestMapStyle.value
+                            val hitId = latestRenderedMap.value.hitTest(mapX, mapY, style)
+                            if (hitId != null) {
+                                val biomeIdx = SplashCatalogData.BIOMES.indexOfFirst { it.id == hitId }
+                                if (biomeIdx >= 0) {
+                                    val zone = WorldMapCache.zoneById[hitId]
+                                    val (zx, zy) = if (zone != null) zoneMapCenter(zone, style) else (mapX to mapY)
+                                    val isUnlocked = latestBetaMode.value || biomeIdx < latestUnlockedCount.value
+                                    if (isUnlocked) {
+                                        val targetZoom = 3.1f
+                                        val totalTargetScale = fitScale * targetZoom
+                                        val rawPanX = (MAP_W * 0.5f - zx) * totalTargetScale
+                                        val rawPanY = (MAP_H * 0.5f - zy) * totalTargetScale
+                                        val (cPanX, cPanY) = clampPanForSize(rawPanX, rawPanY, targetZoom, vp)
 
-                            scope.launch {
-                                enteringBiomeMapPos = zx to zy
-                                val diveSpec = tween<Float>(durationMillis = 320, easing = FastOutSlowInEasing)
-                                launch {
-                                    enterRingProgress.snapTo(0f)
-                                    enterRingProgress.animateTo(1f, tween(340, easing = FastOutSlowInEasing))
+                                        scope.launch {
+                                            isLockedPulse = false
+                                            enteringBiomeMapPos = zx to zy
+                                            val diveEasing = CubicBezierEasing(0.22f, 1f, 0.36f, 1f)
+                                            val diveSpec = tween<Float>(durationMillis = 340, easing = diveEasing)
+                                            launch {
+                                                enterRingProgress.snapTo(0f)
+                                                enterRingProgress.animateTo(1f, tween(340, easing = diveEasing))
+                                            }
+                                            launch { zoomAnim.animateTo(targetZoom, diveSpec) }
+                                            launch { panXAnim.animateTo(cPanX, diveSpec) }
+                                            launch { panYAnim.animateTo(cPanY, diveSpec) }
+                                            launch {
+                                                delay(180L)
+                                                mapAlphaAnim.animateTo(0.82f, tween(160))
+                                            }
+                                            delay(210L)
+                                            latestOnBiomeSelected.value(biomeIdx)
+                                            delay(340L)
+                                            zoomAnim.snapTo(1.0f)
+                                            panXAnim.snapTo(0f)
+                                            panYAnim.snapTo(0f)
+                                            enterRingProgress.snapTo(0f)
+                                            mapAlphaAnim.snapTo(1f)
+                                            enteringBiomeMapPos = null
+                                        }
+                                    } else {
+                                        val biomeDef = SplashCatalogData.BIOMES[biomeIdx]
+                                        val curLang = latestLang.value
+                                        latestOnLockedBiomeTapped.value(
+                                            SplashStrings.t(
+                                                curLang,
+                                                "${biomeDef.name(curLang)} está bloqueado · Completa el bioma anterior al 100% para desbloquearlo",
+                                                "${biomeDef.name(curLang)} is locked · Reach 100% on the previous biome to unlock"
+                                            )
+                                        )
+                                        scope.launch {
+                                            isLockedPulse = true
+                                            enteringBiomeMapPos = zx to zy
+                                            enterRingProgress.snapTo(0f)
+                                            enterRingProgress.animateTo(1f, tween(280, easing = FastOutSlowInEasing))
+                                            enterRingProgress.snapTo(0f)
+                                            enteringBiomeMapPos = null
+                                            isLockedPulse = false
+                                        }
+                                    }
                                 }
-                                launch { zoomAnim.animateTo(targetZoom, diveSpec) }
-                                launch { panXAnim.animateTo(cPanX, diveSpec) }
-                                launch { panYAnim.animateTo(cPanY, diveSpec) }
-                                delay(200)
-                                onBiomeSelected(biomeIdx)
-                                delay(260)
-                                zoomAnim.snapTo(1.0f)
-                                panXAnim.snapTo(0f)
-                                panYAnim.snapTo(0f)
-                                enterRingProgress.snapTo(0f)
-                                enteringBiomeMapPos = null
                             }
                         }
                     }
-                )
+                }
             }
     ) {
+        Image(
+            bitmap = renderedMap.imageBitmap,
+            contentDescription = null,
+            contentScale = ContentScale.Fit,
+            filterQuality = FilterQuality.Medium,
+            modifier = Modifier
+                .fillMaxSize()
+                .graphicsLayer {
+                    val z = zoomAnim.value
+                    scaleX = z
+                    scaleY = z
+                    translationX = panXAnim.value
+                    translationY = panYAnim.value
+                    alpha = mapAlphaAnim.value
+                }
+        )
+
         Canvas(modifier = Modifier.fillMaxSize()) {
+            val pulsePos = enteringBiomeMapPos ?: return@Canvas
+            val (zx, zy) = pulsePos
             val fitScale = min(size.width / MAP_W, size.height / MAP_H)
             val totalScale = fitScale * zoomAnim.value
-            val drawW = (MAP_W * totalScale).roundToInt()
-            val drawH = (MAP_H * totalScale).roundToInt()
-            val drawLeft = ((size.width - drawW) * 0.5f + panXAnim.value).roundToInt()
-            val drawTop = ((size.height - drawH) * 0.5f + panYAnim.value).roundToInt()
-
-            drawImage(
-                image = renderedMap.imageBitmap,
-                dstOffset = IntOffset(drawLeft, drawTop),
-                dstSize = IntSize(drawW, drawH)
+            val screenPos = Offset(
+                x = size.width * 0.5f + (zx - MAP_W * 0.5f) * totalScale + panXAnim.value,
+                y = size.height * 0.5f + (zy - MAP_H * 0.5f) * totalScale + panYAnim.value
             )
-
-            enteringBiomeMapPos?.let { (zx, zy) ->
-                val progress = enterRingProgress.value
-                val screenPos = Offset(drawLeft + zx * totalScale, drawTop + zy * totalScale)
-                val ringRadius = (18f + 62f * progress) * fitScale
-                val ringAlpha = (1f - progress).coerceIn(0f, 1f) * 0.85f
+            val progress = enterRingProgress.value
+            val ringRadius = (18f + 68f * progress) * fitScale
+            val ringAlpha = (1f - progress).coerceIn(0f, 1f) * 0.90f
+            if (isLockedPulse) {
+                drawCircle(
+                    color = Color(0xFFFFB74D).copy(alpha = ringAlpha),
+                    radius = ringRadius * 0.78f,
+                    center = screenPos,
+                    style = Stroke(width = 4.5f)
+                )
+            } else {
                 drawCircle(
                     color = Color.White.copy(alpha = ringAlpha),
                     radius = ringRadius,
                     center = screenPos,
-                    style = Stroke(width = 4.5f)
+                    style = Stroke(width = 4.8f)
                 )
                 drawCircle(
-                    color = Color(0xFF42A86E).copy(alpha = ringAlpha * 0.75f),
-                    radius = ringRadius * 0.72f,
+                    color = Color(0xFF42A86E).copy(alpha = ringAlpha * 0.80f),
+                    radius = ringRadius * 0.70f,
                     center = screenPos,
-                    style = Stroke(width = 3f)
+                    style = Stroke(width = 3.2f)
                 )
             }
         }
@@ -750,7 +858,7 @@ fun WorldMapCanvas(
                 .padding(end = 12.dp, bottom = 12.dp)
         ) {
             AnimatedVisibility(
-                visible = zoomAnim.value > 1.06f && enteringBiomeMapPos == null,
+                visible = showResetZoom,
                 enter = fadeIn() + scaleIn(initialScale = 0.8f),
                 exit = fadeOut() + scaleOut(targetScale = 0.8f)
             ) {
@@ -786,12 +894,25 @@ private class RenderedMapHolder(
             if (code in 1..WorldMapCache.zones.size) {
                 return WorldMapCache.zones[code - 1].id
             }
+            for (dy in -1..1) {
+                for (dx in -1..1) {
+                    if (dx == 0 && dy == 0) continue
+                    val nx = ix + dx
+                    val ny = iy + dy
+                    if (nx in 0 until HIT_W && ny in 0 until HIT_H) {
+                        val nCode = hitGrid[ny * HIT_W + nx].toInt() and 0xFF
+                        if (nCode in 1..WorldMapCache.zones.size) {
+                            return WorldMapCache.zones[nCode - 1].id
+                        }
+                    }
+                }
+            }
         }
         // Soft proximity fallback near zone anchors
         val isSmooth = style == MapStyle.PRUEBA_3 || style == MapStyle.PRUEBA_4
         val elev = if (style == MapStyle.PRUEBA_1) 14.0f else 13.0f
         var bestId: String? = null
-        var bestDist = 72f
+        var bestDist = 96f
         for (z in WorldMapCache.zones) {
             val (zx, zy) = if (isSmooth) z.smoothCx to z.smoothCy else WorldMapCache.projectIso(z.gxCenter.toFloat(), z.gyCenter.toFloat(), z.wzCenter, elev)
             val d = hypot(mapX - zx, mapY - zy)
@@ -1671,9 +1792,11 @@ private fun drawZoneLabelsAndBadges(
             textPaint.textSize = 9.5f
             textPaint.color = AColor.WHITE
             canvas.drawText(tag, lx, tagY + 3.3f, textPaint)
+            markHitRect(hitGrid, tagRect.left - 4f, tagRect.top - 4f, tagRect.right + 4f, tagRect.bottom + 4f, idx + 1)
         }
 
-        markHitRect(hitGrid, lx - 48f, ly - 14f, lx + 48f, ly + 14f, idx + 1)
+        markHitRect(hitGrid, cx - 44f, cy - 42f, cx + 44f, cy + 36f, idx + 1)
+        markHitRect(hitGrid, lx - 52f, ly - 16f, lx + 52f, ly + 16f, idx + 1)
     }
 }
 

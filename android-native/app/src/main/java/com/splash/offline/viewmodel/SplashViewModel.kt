@@ -38,6 +38,7 @@ import com.splash.offline.data.WallSubTab
 import com.splash.offline.data.WidgetThemePref
 import java.io.File
 import java.time.LocalDate
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -1075,7 +1076,25 @@ class SplashViewModel(application: Application) : AndroidViewModel(application) 
         if (targetBiomeIndex != null) {
             val maxAllowed = if (st.betaMode) SplashCatalogData.BIOMES.lastIndex else (st.unlockedBiomeCount - 1)
             val clamped = targetBiomeIndex.coerceIn(0, maxAllowed)
-            updateAndPersist { it.copy(activeBiomeIndex = clamped, is3DOpen = open) }
+            val targetBiomeId = SplashCatalogData.BIOMES[clamped].id
+            val bQuick = st.catalog.firstOrNull { it.biomeExclusive == targetBiomeId && it.category == GoalCategory.RAPIDO }?.id
+                ?: st.currentQuickIds.second
+            val bMed = st.catalog.firstOrNull { it.biomeExclusive == targetBiomeId && it.category == GoalCategory.MEDIO }?.id
+                ?: st.currentMediumIds.second
+            _uiState.update { cur ->
+                cur.copy(
+                    activeBiomeIndex = clamped,
+                    betaStageOverride = if (clamped != st.activeBiomeIndex) null else cur.betaStageOverride,
+                    currentQuickIds = cur.currentQuickIds.first to bQuick,
+                    currentMediumIds = cur.currentMediumIds.first to bMed,
+                    is3DOpen = open
+                )
+            }
+            // Persist asynchronously after the transition settles so opening the 3D biome stays 120 Hz
+            viewModelScope.launch(Dispatchers.IO) {
+                delay(420L)
+                repo.saveState(_uiState.value, forceRescheduleNotifs = false)
+            }
         } else {
             if (!open && st.isAmbientAudioPlaying) {
                 audioManager.stop()

@@ -63,13 +63,16 @@
   <main>
     <h1>Splash · Feedback Beta</h1>
     <p>Este endpoint recibe automáticamente los informes enviados desde la app Android de Splash.</p>
-    <form name="splash-beta-feedback" method="POST" data-netlify="true" netlify-honeypot="bot-field">
+    <form name="splash-beta-feedback" method="POST" enctype="multipart/form-data" data-netlify="true" netlify-honeypot="bot-field">
       <input type="hidden" name="form-name" value="splash-beta-feedback" />
       <input type="hidden" name="subject" value="Informe Splash Beta — %{formName} (%{submissionId})" />
       <p hidden><label>No rellenar: <input name="bot-field" /></label></p>
 
       <label>Usuario
         <input type="text" name="usuario" />
+      </label>
+      <label>Dispositivo
+        <input type="text" name="dispositivo" />
       </label>
       <label>Versión
         <input type="text" name="version" />
@@ -109,6 +112,15 @@
       </label>
       <label>Comentarios adicionales
         <textarea name="comentarios" rows="3"></textarea>
+      </label>
+      <label>Captura / Foto 1
+        <input type="file" name="foto_1" accept="image/*" />
+      </label>
+      <label>Captura / Foto 2
+        <input type="file" name="foto_2" accept="image/*" />
+      </label>
+      <label>Captura / Foto 3
+        <input type="file" name="foto_3" accept="image/*" />
       </label>
       <button type="submit">Enviar informe</button>
     </form>

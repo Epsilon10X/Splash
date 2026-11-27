@@ -1,8 +1,17 @@
 package com.splash.offline.ui.modals
 
+import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.net.Uri
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -28,6 +37,7 @@ import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.ExpandLess
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.Favorite
+import androidx.compose.material.icons.rounded.PhotoLibrary
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Send
 import androidx.compose.material.icons.rounded.ThumbDown
@@ -51,6 +61,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -59,14 +73,43 @@ import com.splash.offline.data.GoalItem
 import com.splash.offline.data.SplashCatalogData
 import com.splash.offline.data.SplashStrings
 import com.splash.offline.data.SplashUiState
+import java.io.ByteArrayOutputStream
+import java.io.DataOutputStream
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
+import kotlin.math.max
+import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 private const val NETLIFY_FEEDBACK_ENDPOINT = "https://splash-beta-feedback.netlify.app/"
+private const val MAX_FEEDBACK_PHOTOS = 3
+
+private fun compressFeedbackPhoto(context: Context, uri: Uri): ByteArray? {
+    return try {
+        val rawBytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: return null
+        val decoded = BitmapFactory.decodeByteArray(rawBytes, 0, rawBytes.size) ?: return null
+        val maxDim = max(decoded.width, decoded.height)
+        val finalBmp = if (maxDim > 1280 && maxDim > 0) {
+            val scale = 1280f / maxDim.toFloat()
+            val w = (decoded.width * scale).roundToInt().coerceAtLeast(1)
+            val h = (decoded.height * scale).roundToInt().coerceAtLeast(1)
+            Bitmap.createScaledBitmap(decoded, w, h, true).also {
+                if (it !== decoded) decoded.recycle()
+            }
+        } else {
+            decoded
+        }
+        val out = ByteArrayOutputStream()
+        finalBmp.compress(Bitmap.CompressFormat.JPEG, 82, out)
+        finalBmp.recycle()
+        out.toByteArray()
+    } catch (_: Throwable) {
+        null
+    }
+}
 
 @Composable
 fun FeedbackSheet(
@@ -75,8 +118,38 @@ fun FeedbackSheet(
     onShowToast: (String) -> Unit
 ) {
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
 
     var respondentName by remember(state.userName) { mutableStateOf(state.userName) }
+    var deviceModel by remember { mutableStateOf("") }
+    var attachedPhotos by remember { mutableStateOf(listOf<Uri>()) }
+    val detectedDevice = remember {
+        val m = Build.MANUFACTURER.orEmpty().trim()
+        val d = Build.MODEL.orEmpty().trim()
+        when {
+            d.isEmpty() -> m
+            m.isEmpty() || d.startsWith(m, ignoreCase = true) -> d
+            else -> "$m $d"
+        }
+    }
+    val pickPhotosLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetMultipleContents()
+    ) { uris ->
+        if (uris.isNotEmpty()) {
+            val combined = (attachedPhotos + uris).distinct()
+            if (combined.size > MAX_FEEDBACK_PHOTOS) {
+                onShowToast(
+                    SplashStrings.t(
+                        state.lang,
+                        "Máximo $MAX_FEEDBACK_PHOTOS fotos por informe",
+                        "Maximum $MAX_FEEDBACK_PHOTOS photos per report"
+                    )
+                )
+            }
+            attachedPhotos = combined.take(MAX_FEEDBACK_PHOTOS)
+        }
+    }
+
     var disconnectHelp by remember { mutableStateOf("") }
     var notifControlAgree by remember { mutableStateOf("") }
     var favoriteMap by remember { mutableStateOf("") }
@@ -147,33 +220,38 @@ fun FeedbackSheet(
         }.joinToString(", ").ifBlank { "Sin respuesta" }
 
         val userLabel = respondentName.trim().ifBlank { "Sin nombre" }
+        val deviceLabel = deviceModel.trim().ifBlank { "Sin respuesta" }
         return buildString {
-            appendLine("=== INFORME SPLASH BETA v2.0.24 ===")
+            appendLine("=== INFORME SPLASH BETA v2.0.26 ===")
             appendLine("1. Nombre: $userLabel")
-            appendLine("2. Ayuda a desconectar / dejar de scrollear: ${disconnectHelp.ifBlank { "Sin respuesta" }}")
-            appendLine("3. Control aleatoriedad notificaciones: ${notifControlAgree.ifBlank { "Sin respuesta" }}")
-            appendLine("4. Top 5 objetivos favoritos:")
+            appendLine("2. Dispositivo: $deviceLabel")
+            appendLine("3. Ayuda a desconectar / dejar de scrollear: ${disconnectHelp.ifBlank { "Sin respuesta" }}")
+            appendLine("4. Control aleatoriedad notificaciones: ${notifControlAgree.ifBlank { "Sin respuesta" }}")
+            appendLine("5. Top 5 objetivos favoritos:")
             if (favNames.isEmpty()) appendLine("   - Ninguno")
             else favNames.forEach { appendLine("   - $it") }
-            appendLine("5. Top 5 objetivos que menos gustan:")
+            appendLine("6. Top 5 objetivos que menos gustan:")
             if (dislikeNames.isEmpty()) appendLine("   - Ninguno")
             else dislikeNames.forEach { appendLine("   - $it") }
-            appendLine("6. Top 3 biomas favoritos:")
+            appendLine("7. Top 3 biomas favoritos:")
             if (favBiomeNames.isEmpty()) appendLine("   - Ninguno")
             else favBiomeNames.forEach { appendLine("   - $it") }
-            appendLine("7. Top 3 biomas que menos gustan:")
+            appendLine("8. Top 3 biomas que menos gustan:")
             if (dislikeBiomeNames.isEmpty()) appendLine("   - Ninguno")
             else dislikeBiomeNames.forEach { appendLine("   - $it") }
-            appendLine("8. Mapa favorito: ${favoriteMap.ifBlank { "Sin respuesta" }}")
-            appendLine("9. Estilo de volteo favorito: ${favoriteFlip.ifBlank { "Sin respuesta" }}")
-            appendLine("10. Diseño biomas favorito: ${favoriteBiomeOrder.ifBlank { "Sin respuesta" }}")
-            appendLine("11. Cómo demostrar cumplido: $proofSummary")
-            appendLine("12. Comentarios: ${comments.trim().ifBlank { "Ninguno" }}")
+            appendLine("9. Mapa favorito: ${favoriteMap.ifBlank { "Sin respuesta" }}")
+            appendLine("10. Estilo de volteo favorito: ${favoriteFlip.ifBlank { "Sin respuesta" }}")
+            appendLine("11. Diseño biomas favorito: ${favoriteBiomeOrder.ifBlank { "Sin respuesta" }}")
+            appendLine("12. Cómo demostrar cumplido: $proofSummary")
+            appendLine("13. Comentarios: ${comments.trim().ifBlank { "Ninguno" }}")
+            appendLine("14. Fotos adjuntas: ${attachedPhotos.size}")
         }
     }
 
     fun submitToNetlify() {
         val hasAnyAnswer = respondentName.isNotBlank() ||
+            deviceModel.isNotBlank() ||
+            attachedPhotos.isNotEmpty() ||
             disconnectHelp.isNotBlank() ||
             notifControlAgree.isNotBlank() ||
             favGoalIds.isNotEmpty() ||
@@ -207,7 +285,8 @@ fun FeedbackSheet(
             "form-name" to "splash-beta-feedback",
             "bot-field" to "",
             "usuario" to respondentName.trim().ifBlank { "Sin nombre" },
-            "version" to "2.0.24",
+            "dispositivo" to deviceModel.trim().ifBlank { "Sin respuesta" },
+            "version" to "2.0.26",
             "ayuda_desconectar" to disconnectHelp.ifBlank { "Sin respuesta" },
             "control_notis" to notifControlAgree.ifBlank { "Sin respuesta" },
             "mapa_favorito" to favoriteMap.ifBlank { "Sin respuesta" },
@@ -222,28 +301,70 @@ fun FeedbackSheet(
             "comentarios" to comments.trim().ifBlank { "Ninguno" }
         )
 
+        val photosToSend = attachedPhotos.take(MAX_FEEDBACK_PHOTOS)
+
         isSubmitting = true
         errorMessage = null
 
         scope.launch {
             val ok = withContext(Dispatchers.IO) {
                 try {
-                    val encoded = fields.entries.joinToString("&") { (k, v) ->
-                        "${URLEncoder.encode(k, "UTF-8")}=${URLEncoder.encode(v, "UTF-8")}"
+                    val preparedPhotos = photosToSend.mapIndexedNotNull { idx, uri ->
+                        compressFeedbackPhoto(context, uri)?.let { bytes ->
+                            "foto_${idx + 1}" to bytes
+                        }
                     }
-                    val conn = (URL(NETLIFY_FEEDBACK_ENDPOINT).openConnection() as HttpURLConnection).apply {
-                        requestMethod = "POST"
-                        connectTimeout = 12_000
-                        readTimeout = 12_000
-                        doOutput = true
-                        instanceFollowRedirects = true
-                        setRequestProperty("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8")
-                        setRequestProperty("Accept", "text/html,application/json")
+                    if (preparedPhotos.isEmpty()) {
+                        val encoded = fields.entries.joinToString("&") { (k, v) ->
+                            "${URLEncoder.encode(k, "UTF-8")}=${URLEncoder.encode(v, "UTF-8")}"
+                        }
+                        val conn = (URL(NETLIFY_FEEDBACK_ENDPOINT).openConnection() as HttpURLConnection).apply {
+                            requestMethod = "POST"
+                            connectTimeout = 12_000
+                            readTimeout = 12_000
+                            doOutput = true
+                            instanceFollowRedirects = true
+                            setRequestProperty("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8")
+                            setRequestProperty("Accept", "text/html,application/json")
+                        }
+                        conn.outputStream.use { it.write(encoded.toByteArray(Charsets.UTF_8)) }
+                        val code = conn.responseCode
+                        conn.disconnect()
+                        code in 200..399
+                    } else {
+                        val boundary = "----SplashBoundary${System.currentTimeMillis()}"
+                        val conn = (URL(NETLIFY_FEEDBACK_ENDPOINT).openConnection() as HttpURLConnection).apply {
+                            requestMethod = "POST"
+                            connectTimeout = 15_000
+                            readTimeout = 28_000
+                            doOutput = true
+                            useCaches = false
+                            instanceFollowRedirects = true
+                            setRequestProperty("Content-Type", "multipart/form-data; boundary=$boundary")
+                            setRequestProperty("Accept", "text/html,application/json")
+                        }
+                        DataOutputStream(conn.outputStream).use { dos ->
+                            fields.forEach { (k, v) ->
+                                dos.writeBytes("--$boundary\r\n")
+                                dos.writeBytes("Content-Disposition: form-data; name=\"$k\"\r\n")
+                                dos.writeBytes("Content-Type: text/plain; charset=UTF-8\r\n\r\n")
+                                dos.write(v.toByteArray(Charsets.UTF_8))
+                                dos.writeBytes("\r\n")
+                            }
+                            preparedPhotos.forEachIndexed { idx, (fieldName, jpgBytes) ->
+                                dos.writeBytes("--$boundary\r\n")
+                                dos.writeBytes("Content-Disposition: form-data; name=\"$fieldName\"; filename=\"captura_${idx + 1}.jpg\"\r\n")
+                                dos.writeBytes("Content-Type: image/jpeg\r\n\r\n")
+                                dos.write(jpgBytes)
+                                dos.writeBytes("\r\n")
+                            }
+                            dos.writeBytes("--$boundary--\r\n")
+                            dos.flush()
+                        }
+                        val code = conn.responseCode
+                        conn.disconnect()
+                        code in 200..399
                     }
-                    conn.outputStream.use { it.write(encoded.toByteArray(Charsets.UTF_8)) }
-                    val code = conn.responseCode
-                    conn.disconnect()
-                    code in 200..399
                 } catch (_: Throwable) {
                     false
                 }
@@ -369,12 +490,50 @@ fun FeedbackSheet(
                     )
                 }
 
-                // 2. Cuanto ayuda a dejar de scrollear o desconectar
+                // 2. Dispositivo en el que se descargo la app
                 FeedbackSectionCard(
                     title = SplashStrings.t(
                         state.lang,
-                        "2. ¿Cuánto te ayuda Splash a dejar de scrollear o desconectar?",
-                        "2. How much does Splash help you stop scrolling or unplug?"
+                        "2. ¿En qué dispositivo has descargado la app?",
+                        "2. What device did you download the app on?"
+                    )
+                ) {
+                    OutlinedTextField(
+                        value = deviceModel,
+                        onValueChange = { deviceModel = it },
+                        singleLine = true,
+                        shape = RoundedCornerShape(16.dp),
+                        placeholder = {
+                            Text(SplashStrings.t(state.lang, "Ej. Pixel 11 Pro", "e.g. Pixel 11 Pro"))
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    if (detectedDevice.isNotBlank() && deviceModel != detectedDevice) {
+                        FilterChip(
+                            selected = false,
+                            onClick = { deviceModel = detectedDevice },
+                            shape = CircleShape,
+                            label = {
+                                Text(
+                                    SplashStrings.t(
+                                        state.lang,
+                                        "Usar detectado: $detectedDevice",
+                                        "Use detected: $detectedDevice"
+                                    ),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        )
+                    }
+                }
+
+                // 3. Cuanto ayuda a dejar de scrollear o desconectar
+                FeedbackSectionCard(
+                    title = SplashStrings.t(
+                        state.lang,
+                        "3. ¿Cuánto te ayuda Splash a dejar de scrollear o desconectar?",
+                        "3. How much does Splash help you stop scrolling or unplug?"
                     )
                 ) {
                     val disconnectOptions = listOf(
@@ -399,12 +558,12 @@ fun FeedbackSheet(
                     }
                 }
 
-                // 3. Control del maximo de notificaciones aleatorias
+                // 4. Control del maximo de notificaciones aleatorias
                 FeedbackSectionCard(
                     title = SplashStrings.t(
                         state.lang,
-                        "3. ¿Estás de acuerdo con poder elegir el máximo de notificaciones aleatorias al día?",
-                        "3. Do you like choosing the daily max of random notifications?"
+                        "4. ¿Estás de acuerdo con poder elegir el máximo de notificaciones aleatorias al día?",
+                        "4. Do you like choosing the daily max of random notifications?"
                     )
                 ) {
                     val notifControlOptions = listOf(
@@ -427,12 +586,12 @@ fun FeedbackSheet(
                     }
                 }
 
-                // 4. Tus 5 objetivos favoritos
+                // 5. Tus 5 objetivos favoritos
                 GoalMultiPickerCard(
                     title = SplashStrings.t(
                         state.lang,
-                        "4. Elige tus 5 objetivos favoritos (${favGoalIds.size + favCustomGoals.size}/5)",
-                        "4. Pick your top 5 favorite goals (${favGoalIds.size + favCustomGoals.size}/5)"
+                        "5. Elige tus 5 objetivos favoritos (${favGoalIds.size + favCustomGoals.size}/5)",
+                        "5. Pick your top 5 favorite goals (${favGoalIds.size + favCustomGoals.size}/5)"
                     ),
                     lang = state.lang,
                     allGoals = availableGoals,
@@ -473,12 +632,12 @@ fun FeedbackSheet(
                     icon = Icons.Rounded.Favorite
                 )
 
-                // 5. Tus 5 objetivos menos favoritos
+                // 6. Tus 5 objetivos menos favoritos
                 GoalMultiPickerCard(
                     title = SplashStrings.t(
                         state.lang,
-                        "5. Elige los 5 objetivos que menos te gustan (${dislikeGoalIds.size + dislikeCustomGoals.size}/5)",
-                        "5. Pick the 5 goals you like least (${dislikeGoalIds.size + dislikeCustomGoals.size}/5)"
+                        "6. Elige los 5 objetivos que menos te gustan (${dislikeGoalIds.size + dislikeCustomGoals.size}/5)",
+                        "6. Pick the 5 goals you like least (${dislikeGoalIds.size + dislikeCustomGoals.size}/5)"
                     ),
                     lang = state.lang,
                     allGoals = availableGoals,
@@ -519,12 +678,12 @@ fun FeedbackSheet(
                     icon = Icons.Rounded.ThumbDown
                 )
 
-                // 6. Tus 3 biomas favoritos
+                // 7. Tus 3 biomas favoritos
                 FeedbackSectionCard(
                     title = SplashStrings.t(
                         state.lang,
-                        "6. Elige tus 3 biomas favoritos (${favBiomeIds.size}/3)",
-                        "6. Pick your top 3 favorite biomes (${favBiomeIds.size}/3)"
+                        "7. Elige tus 3 biomas favoritos (${favBiomeIds.size}/3)",
+                        "7. Pick your top 3 favorite biomes (${favBiomeIds.size}/3)"
                     )
                 ) {
                     FlowRow(
@@ -553,12 +712,12 @@ fun FeedbackSheet(
                     }
                 }
 
-                // 7. Tus 3 biomas menos favoritos
+                // 8. Tus 3 biomas menos favoritos
                 FeedbackSectionCard(
                     title = SplashStrings.t(
                         state.lang,
-                        "7. Elige los 3 biomas que menos te gustan (${dislikeBiomeIds.size}/3)",
-                        "7. Pick the 3 biomes you like least (${dislikeBiomeIds.size}/3)"
+                        "8. Elige los 3 biomas que menos te gustan (${dislikeBiomeIds.size}/3)",
+                        "8. Pick the 3 biomes you like least (${dislikeBiomeIds.size}/3)"
                     )
                 ) {
                     FlowRow(
@@ -587,9 +746,9 @@ fun FeedbackSheet(
                     }
                 }
 
-                // 8. Que mapa mola mas
+                // 9. Que mapa mola mas
                 FeedbackSectionCard(
-                    title = SplashStrings.t(state.lang, "8. ¿Qué mapa mola más?", "8. Which map style is best?")
+                    title = SplashStrings.t(state.lang, "9. ¿Qué mapa mola más?", "9. Which map style is best?")
                 ) {
                     val mapOptions = listOf("1", "2", "3", "4")
                     FlowRow(
@@ -607,9 +766,9 @@ fun FeedbackSheet(
                     }
                 }
 
-                // 9. Estilo de volteo de flashcard
+                // 10. Estilo de volteo de flashcard
                 FeedbackSectionCard(
-                    title = SplashStrings.t(state.lang, "9. ¿Qué estilo de volteo de flashcard prefieres?", "9. Which flashcard reveal style do you prefer?")
+                    title = SplashStrings.t(state.lang, "10. ¿Qué estilo de volteo de flashcard prefieres?", "10. Which flashcard reveal style do you prefer?")
                 ) {
                     val flipOptions = listOf(
                         "Flash izq · Giro 3D horizontal" to SplashStrings.t(state.lang, "Giro 3D horizontal (Flash izq)", "3D Horizontal Flip (Flash L)"),
@@ -632,9 +791,9 @@ fun FeedbackSheet(
                     }
                 }
 
-                // 10. Diseno para ordenar los biomas
+                // 11. Diseno para ordenar los biomas
                 FeedbackSectionCard(
-                    title = SplashStrings.t(state.lang, "10. ¿Qué diseño te gusta más para ordenar los biomas?", "10. Which biome layout order do you prefer?")
+                    title = SplashStrings.t(state.lang, "11. ¿Qué diseño te gusta más para ordenar los biomas?", "11. Which biome layout order do you prefer?")
                 ) {
                     val layoutOptions = listOf(
                         "Mini (cuadrícula)" to SplashStrings.t(state.lang, "Mini (cuadrícula 2 col.)", "Mini (2-col grid)"),
@@ -656,9 +815,9 @@ fun FeedbackSheet(
                     }
                 }
 
-                // 11. Como demostrar que has cumplido un objetivo
+                // 12. Como demostrar que has cumplido un objetivo
                 FeedbackSectionCard(
-                    title = SplashStrings.t(state.lang, "11. ¿Cómo te gustaría demostrar que has cumplido un objetivo?", "11. How should you prove goal completion?")
+                    title = SplashStrings.t(state.lang, "12. ¿Cómo te gustaría demostrar que has cumplido un objetivo?", "12. How should you prove goal completion?")
                 ) {
                     val proofOptions = listOf(
                         "Temporizador sin salir (pantalla apagada)" to SplashStrings.t(state.lang, "Temporizador sin salir (pantalla apagada)", "Focus timer without leaving"),
@@ -695,9 +854,9 @@ fun FeedbackSheet(
                     )
                 }
 
-                // 12. Comentarios
+                // 13. Comentarios
                 FeedbackSectionCard(
-                    title = SplashStrings.t(state.lang, "12. Otros detalles o sugerencias", "12. Other suggestions or details")
+                    title = SplashStrings.t(state.lang, "13. Otros detalles o sugerencias", "13. Other suggestions or details")
                 ) {
                     OutlinedTextField(
                         value = comments,
@@ -716,6 +875,106 @@ fun FeedbackSheet(
                         },
                         modifier = Modifier.fillMaxWidth()
                     )
+                }
+
+                // 14. Fotos o capturas opcionales (max 3)
+                FeedbackSectionCard(
+                    title = SplashStrings.t(
+                        state.lang,
+                        "14. Adjuntar capturas o fotos (opcional, máx. $MAX_FEEDBACK_PHOTOS)",
+                        "14. Attach screenshots or photos (optional, max $MAX_FEEDBACK_PHOTOS)"
+                    )
+                ) {
+                    Text(
+                        text = SplashStrings.t(
+                            state.lang,
+                            "Si viste algún fallo visual o quieres enseñar cómo quedó tu pantalla, adjunta hasta $MAX_FEEDBACK_PHOTOS imágenes.",
+                            "If you spotted a visual bug or want to share a screenshot, attach up to $MAX_FEEDBACK_PHOTOS images."
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    if (attachedPhotos.isNotEmpty()) {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState())
+                        ) {
+                            attachedPhotos.forEach { uri ->
+                                val previewBmp = remember(uri) {
+                                    try {
+                                        val opts = BitmapFactory.Options().apply { inSampleSize = 4 }
+                                        context.contentResolver.openInputStream(uri)?.use {
+                                            BitmapFactory.decodeStream(it, null, opts)?.asImageBitmap()
+                                        }
+                                    } catch (_: Throwable) {
+                                        null
+                                    }
+                                }
+                                Box(modifier = Modifier.size(78.dp)) {
+                                    Surface(
+                                        shape = RoundedCornerShape(16.dp),
+                                        color = MaterialTheme.colorScheme.surfaceContainerHighest,
+                                        modifier = Modifier.fillMaxSize()
+                                    ) {
+                                        if (previewBmp != null) {
+                                            Image(
+                                                bitmap = previewBmp,
+                                                contentDescription = null,
+                                                contentScale = ContentScale.Crop,
+                                                modifier = Modifier.fillMaxSize()
+                                            )
+                                        } else {
+                                            Box(
+                                                contentAlignment = Alignment.Center,
+                                                modifier = Modifier.fillMaxSize()
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Rounded.PhotoLibrary,
+                                                    contentDescription = null,
+                                                    tint = MaterialTheme.colorScheme.primary
+                                                )
+                                            }
+                                        }
+                                    }
+                                    Surface(
+                                        shape = CircleShape,
+                                        color = Color.Black.copy(alpha = 0.68f),
+                                        modifier = Modifier
+                                            .align(Alignment.TopEnd)
+                                            .padding(4.dp)
+                                            .size(22.dp)
+                                            .clip(CircleShape)
+                                            .clickable { attachedPhotos = attachedPhotos - uri }
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Rounded.Close,
+                                            contentDescription = SplashStrings.t(state.lang, "Quitar", "Remove"),
+                                            tint = Color.White,
+                                            modifier = Modifier.padding(4.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    FilledTonalButton(
+                        onClick = { pickPhotosLauncher.launch("image/*") },
+                        enabled = attachedPhotos.size < MAX_FEEDBACK_PHOTOS,
+                        shape = CircleShape,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Rounded.PhotoLibrary, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            SplashStrings.t(
+                                state.lang,
+                                "Añadir fotos o capturas (${attachedPhotos.size}/$MAX_FEEDBACK_PHOTOS)",
+                                "Add photos or screenshots (${attachedPhotos.size}/$MAX_FEEDBACK_PHOTOS)"
+                            )
+                        )
+                    }
                 }
 
                 if (errorMessage != null) {
